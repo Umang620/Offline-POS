@@ -225,16 +225,15 @@ fun InventoryProductCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                Column(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
                         text = String.format(Locale.US, "Price: ₱%.2f", product.price),
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "Stock: ${product.stockQuantity}",
                         fontWeight = FontWeight.SemiBold,
