@@ -1,4 +1,4 @@
-# Cafe Mocktails — Offline Point of Sale (POS)
+• Offline Point of Sale (POS)
 
 A 100% offline, native Android Point of Sale (POS) application built for cafes, coffee shops, and retail stores. Developed using modern Android technologies including **Kotlin**, **Jetpack Compose**, **Material 3**, **Room SQLite Database**, and **MVVM Architecture**.
 
