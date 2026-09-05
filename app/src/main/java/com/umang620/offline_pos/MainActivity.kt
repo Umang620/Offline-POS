@@ -16,6 +16,12 @@ import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.MoneyOff
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -28,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import com.umang620.offline_pos.data.local.PosDatabase
 import com.umang620.offline_pos.data.repository.PosRepository
 import com.umang620.offline_pos.ui.expenses.ExpensesScreen
@@ -99,51 +106,97 @@ fun MainAppScreen(
 ) {
     var selectedTab by remember { mutableStateOf(PosTab.REGISTER) }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        bottomBar = {
-            NavigationBar {
-                PosTab.entries.forEach { tab ->
-                    NavigationBarItem(
-                        selected = (selectedTab == tab),
-                        onClick = { selectedTab = tab },
-                        icon = { Icon(tab.icon, contentDescription = tab.title) },
-                        label = { Text(tab.title) }
-                    )
+    BoxWithConstraints {
+        val isWideScreen = maxWidth > 600.dp
+
+        if (isWideScreen) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                NavigationRail {
+                    PosTab.entries.forEach { tab ->
+                        NavigationRailItem(
+                            selected = (selectedTab == tab),
+                            onClick = { selectedTab = tab },
+                            icon = { Icon(tab.icon, contentDescription = tab.title) },
+                            label = { Text(tab.title) }
+                        )
+                    }
                 }
+                Scaffold(
+                    modifier = Modifier.weight(1f)
+                ) { innerPadding ->
+                    TabContent(selectedTab, innerPadding, posViewModel, unpaidOrdersViewModel, salesViewModel, expensesViewModel, dailySummaryViewModel, inventoryViewModel)
+                }
+            }
+        } else {
+            Scaffold(
+                modifier = Modifier.fillMaxSize(),
+                bottomBar = {
+                    NavigationBar {
+                        PosTab.entries.forEach { tab ->
+                            NavigationBarItem(
+                                selected = (selectedTab == tab),
+                                onClick = { selectedTab = tab },
+                                icon = { Icon(tab.icon, contentDescription = tab.title) },
+                                label = {
+                                    Text(
+                                        text = tab.title,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                },
+                                alwaysShowLabel = false // Helps fit 6 items on small screens
+                            )
+                        }
+                    }
+                }
+            ) { innerPadding ->
+                TabContent(selectedTab, innerPadding, posViewModel, unpaidOrdersViewModel, salesViewModel, expensesViewModel, dailySummaryViewModel, inventoryViewModel)
             }
         }
-    ) { innerPadding ->
-        when (selectedTab) {
-            PosTab.REGISTER -> {
-                ScaffoldContentWrapper(innerPadding) {
-                    RegisterScreen(viewModel = posViewModel)
-                }
+    }
+}
+
+@Composable
+fun TabContent(
+    selectedTab: PosTab,
+    innerPadding: PaddingValues,
+    posViewModel: PosViewModel,
+    unpaidOrdersViewModel: UnpaidOrdersViewModel,
+    salesViewModel: SalesViewModel,
+    expensesViewModel: ExpensesViewModel,
+    dailySummaryViewModel: DailySummaryViewModel,
+    inventoryViewModel: InventoryViewModel
+) {
+    when (selectedTab) {
+        PosTab.REGISTER -> {
+            ScaffoldContentWrapper(innerPadding) {
+                RegisterScreen(viewModel = posViewModel)
             }
-            PosTab.UNPAID -> {
-                ScaffoldContentWrapper(innerPadding) {
-                    UnpaidOrdersScreen(viewModel = unpaidOrdersViewModel)
-                }
+        }
+        PosTab.UNPAID -> {
+            ScaffoldContentWrapper(innerPadding) {
+                UnpaidOrdersScreen(viewModel = unpaidOrdersViewModel)
             }
-            PosTab.SALES -> {
-                ScaffoldContentWrapper(innerPadding) {
-                    SalesHistoryScreen(viewModel = salesViewModel)
-                }
+        }
+        PosTab.SALES -> {
+            ScaffoldContentWrapper(innerPadding) {
+                SalesHistoryScreen(viewModel = salesViewModel)
             }
-            PosTab.EXPENSES -> {
-                ScaffoldContentWrapper(innerPadding) {
-                    ExpensesScreen(viewModel = expensesViewModel)
-                }
+        }
+        PosTab.EXPENSES -> {
+            ScaffoldContentWrapper(innerPadding) {
+                ExpensesScreen(viewModel = expensesViewModel)
             }
-            PosTab.SUMMARY -> {
-                ScaffoldContentWrapper(innerPadding) {
-                    DailySummaryScreen(viewModel = dailySummaryViewModel)
-                }
+        }
+        PosTab.SUMMARY -> {
+            ScaffoldContentWrapper(innerPadding) {
+                DailySummaryScreen(viewModel = dailySummaryViewModel)
             }
-            PosTab.INVENTORY -> {
-                ScaffoldContentWrapper(innerPadding) {
-                    InventoryScreen(viewModel = inventoryViewModel)
-                }
+        }
+        PosTab.INVENTORY -> {
+            ScaffoldContentWrapper(innerPadding) {
+                InventoryScreen(viewModel = inventoryViewModel)
             }
         }
     }

@@ -169,7 +169,7 @@ fun RegisterScreen(viewModel: PosViewModel) {
                 }
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 160.dp),
+                    columns = GridCells.Adaptive(minSize = 130.dp), // Reduced from 160.dp for better fit on small phones
                     contentPadding = PaddingValues(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -307,10 +307,8 @@ fun ProductCard(
                 color = MaterialTheme.colorScheme.secondary
             )
             Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
                     text = String.format(Locale.US, "₱%.2f", product.price),
@@ -321,7 +319,9 @@ fun ProductCard(
                 Text(
                     text = if (product.stockQuantity > 0) "Stock: ${product.stockQuantity}" else "Out of Stock",
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (product.stockQuantity > 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error
+                    color = if (product.stockQuantity > 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))

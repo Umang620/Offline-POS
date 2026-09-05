@@ -235,12 +235,14 @@ fun BalanceRow(
         Text(
             text = label,
             style = if (isHighlight) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall,
-            fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.Normal
+            fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.Normal,
+            modifier = Modifier.weight(1f)
         )
         Text(
             text = String.format(Locale.US, "₱%.2f", value),
             style = if (isHighlight) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 8.dp)
         )
     }
 }
