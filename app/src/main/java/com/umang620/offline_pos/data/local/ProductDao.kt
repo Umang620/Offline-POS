@@ -25,6 +25,9 @@ interface ProductDao {
     @Query("SELECT * FROM products WHERE id = :productId LIMIT 1")
     suspend fun getProductById(productId: Long): ProductEntity?
 
+    @Query("SELECT * FROM products WHERE LOWER(TRIM(name)) = LOWER(TRIM(:name)) AND LOWER(TRIM(category)) = LOWER(TRIM(:category)) AND (itemType = :itemType OR (:itemType = 'PRODUCT' AND itemType IS NULL)) LIMIT 1")
+    suspend fun findProductByNameAndCategory(name: String, category: String, itemType: String): ProductEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProduct(product: ProductEntity): Long
 

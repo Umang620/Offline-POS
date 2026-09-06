@@ -50,11 +50,39 @@ class PosRepository(
     fun getGCashExpensesTotalByDate(startOfDay: Long, endOfDay: Long) = expenseDao.getGCashExpensesTotalByDate(startOfDay, endOfDay)
 
     suspend fun insertProduct(product: ProductEntity) {
-        productDao.insertProduct(product)
+        insertOrMergeProduct(product)
+    }
+
+    suspend fun insertOrMergeProduct(product: ProductEntity) {
+        val existing = productDao.findProductByNameAndCategory(
+            name = product.name,
+            category = product.category,
+            itemType = product.itemType
+        )
+        if (existing != null && existing.id != product.id) {
+            // Merge stock into existing product/raw material
+            val mergedProduct = existing.copy(
+                stockQuantity = existing.stockQuantity + product.stockQuantity,
+                price = if (product.price > 0) product.price else existing.price,
+                sku = if (product.sku.isNotBlank()) product.sku else existing.sku,
+                unit = if (product.unit.isNotBlank()) product.unit else existing.unit,
+                isActive = product.isActive
+            )
+            productDao.updateProduct(mergedProduct)
+            if (product.id > 0) {
+                productDao.deleteProduct(product)
+            }
+        } else {
+            if (product.id > 0) {
+                productDao.updateProduct(product)
+            } else {
+                productDao.insertProduct(product)
+            }
+        }
     }
 
     suspend fun updateProduct(product: ProductEntity) {
-        productDao.updateProduct(product)
+        insertOrMergeProduct(product)
     }
 
     suspend fun deleteProduct(product: ProductEntity) {
