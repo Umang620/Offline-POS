@@ -12,13 +12,28 @@ import kotlinx.coroutines.launch
 
 class InventoryViewModel(private val repository: PosRepository) : ViewModel() {
 
-    val products: StateFlow<List<ProductEntity>> = repository.allProducts.stateIn(
+    val products: StateFlow<List<ProductEntity>> = repository.getProductsByType("PRODUCT").stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
 
-    fun addProduct(name: String, price: Double, category: String, stockQuantity: Int, sku: String, isActive: Boolean = true) {
+    val rawMaterials: StateFlow<List<ProductEntity>> = repository.getProductsByType("RAW_MATERIAL").stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    fun addInventoryItem(
+        name: String,
+        price: Double = 0.0,
+        category: String = "General",
+        stockQuantity: Int,
+        sku: String = "",
+        isActive: Boolean = true,
+        itemType: String = "PRODUCT",
+        unit: String = "pcs"
+    ) {
         viewModelScope.launch {
             val newProduct = ProductEntity(
                 name = name,
@@ -26,7 +41,9 @@ class InventoryViewModel(private val repository: PosRepository) : ViewModel() {
                 category = category,
                 stockQuantity = stockQuantity,
                 sku = sku,
-                isActive = isActive
+                isActive = isActive,
+                itemType = itemType,
+                unit = unit
             )
             repository.insertProduct(newProduct)
         }

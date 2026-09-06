@@ -1,22 +1,28 @@
 package com.umang620.offline_pos
 
-import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Assessment
@@ -44,6 +50,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -135,57 +142,65 @@ fun MainAppScreen(
     var selectedTab by remember { mutableStateOf(PosTab.REGISTER) }
 
     BoxWithConstraints {
-        val isWideScreen = maxWidth > 600.dp
+        val isWideScreen = maxWidth > 600.dp || maxHeight < 450.dp
 
         if (isWideScreen) {
             Row(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-                NavigationRail(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    header = {
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
+                Column(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState())
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    PosTab.entries.forEach { tab ->
-                        val isSelected = selectedTab == tab
-                        NavigationRailItem(
-                            selected = isSelected,
-                            onClick = { selectedTab = tab },
-                            icon = { Icon(tab.icon, contentDescription = tab.title) },
-                            label = {
-                                Text(
-                                    text = tab.title,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                )
-                            },
-                            colors = NavigationRailItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.primary,
-                                selectedTextColor = MaterialTheme.colorScheme.primary,
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    // Compact Light/Dark Mode Toggle beside/below Inventory in Sidebar
-                    IconButton(
-                        onClick = onToggleDarkMode,
-                        modifier = Modifier
-                            .padding(bottom = 16.dp)
-                            .background(
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                                shape = RoundedCornerShape(12.dp)
-                            )
+                    NavigationRail(
+                        containerColor = Color.Transparent,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        header = {
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
                     ) {
-                        Icon(
-                            imageVector = if (isDarkMode) Icons.Default.WbSunny else Icons.Default.DarkMode,
-                            contentDescription = if (isDarkMode) "Light Mode" else "Dark Mode",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(22.dp)
-                        )
+                        PosTab.entries.forEach { tab ->
+                            val isSelected = selectedTab == tab
+                            NavigationRailItem(
+                                selected = isSelected,
+                                onClick = { selectedTab = tab },
+                                icon = { Icon(tab.icon, contentDescription = tab.title) },
+                                label = {
+                                    Text(
+                                        text = tab.title,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                },
+                                colors = NavigationRailItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Compact Light/Dark Mode Toggle beside/under Inventory in Sidebar
+                        IconButton(
+                            onClick = onToggleDarkMode,
+                            modifier = Modifier
+                                .padding(bottom = 16.dp)
+                                .background(
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                        ) {
+                            Icon(
+                                imageVector = if (isDarkMode) Icons.Default.WbSunny else Icons.Default.DarkMode,
+                                contentDescription = if (isDarkMode) "Light Mode" else "Dark Mode",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                     }
                 }
                 Scaffold(
@@ -200,56 +215,64 @@ fun MainAppScreen(
                 modifier = Modifier.fillMaxSize(),
                 containerColor = MaterialTheme.colorScheme.background,
                 bottomBar = {
-                    NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
-                        tonalElevation = 6.dp
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.90f))
                     ) {
-                        PosTab.entries.forEach { tab ->
-                            val isSelected = selectedTab == tab
+                        NavigationBar(
+                            modifier = Modifier.width((7 * 72).dp),
+                            containerColor = Color.Transparent,
+                            tonalElevation = 6.dp
+                        ) {
+                            PosTab.entries.forEach { tab ->
+                                val isSelected = selectedTab == tab
+                                NavigationBarItem(
+                                    selected = isSelected,
+                                    onClick = { selectedTab = tab },
+                                    icon = { Icon(tab.icon, contentDescription = tab.title) },
+                                    label = {
+                                        Text(
+                                            text = tab.title,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                    ),
+                                    alwaysShowLabel = true
+                                )
+                            }
+
+                            // Compact Light / Dark toggle in bottom bar on phone view
                             NavigationBarItem(
-                                selected = isSelected,
-                                onClick = { selectedTab = tab },
-                                icon = { Icon(tab.icon, contentDescription = tab.title) },
-                                label = {
-                                    Text(
-                                        text = tab.title,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                selected = false,
+                                onClick = onToggleDarkMode,
+                                icon = {
+                                    Icon(
+                                        imageVector = if (isDarkMode) Icons.Default.WbSunny else Icons.Default.DarkMode,
+                                        contentDescription = if (isDarkMode) "Light Mode" else "Dark Mode",
+                                        tint = MaterialTheme.colorScheme.primary
                                     )
                                 },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = MaterialTheme.colorScheme.primary,
-                                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
-                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                                ),
-                                alwaysShowLabel = false
+                                label = {
+                                    Text(
+                                        text = if (isDarkMode) "Light" else "Dark",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                alwaysShowLabel = true
                             )
                         }
-
-                        // Compact Light / Dark toggle in bottom bar on phone view
-                        NavigationBarItem(
-                            selected = false,
-                            onClick = onToggleDarkMode,
-                            icon = {
-                                Icon(
-                                    imageVector = if (isDarkMode) Icons.Default.WbSunny else Icons.Default.DarkMode,
-                                    contentDescription = if (isDarkMode) "Light Mode" else "Dark Mode",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = if (isDarkMode) "Light" else "Dark",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            alwaysShowLabel = false
-                        )
                     }
                 }
             ) { innerPadding ->

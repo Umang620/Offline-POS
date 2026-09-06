@@ -13,10 +13,13 @@ interface ProductDao {
     @Query("SELECT * FROM products ORDER BY name ASC")
     fun getAllProducts(): Flow<List<ProductEntity>>
 
-    @Query("SELECT * FROM products WHERE isActive = 1 ORDER BY name ASC")
+    @Query("SELECT * FROM products WHERE isActive = 1 AND (itemType = 'PRODUCT' OR itemType IS NULL) ORDER BY name ASC")
     fun getActiveProducts(): Flow<List<ProductEntity>>
 
-    @Query("SELECT DISTINCT category FROM products ORDER BY category ASC")
+    @Query("SELECT * FROM products WHERE (itemType = :itemType OR (:itemType = 'PRODUCT' AND itemType IS NULL)) ORDER BY name ASC")
+    fun getProductsByType(itemType: String): Flow<List<ProductEntity>>
+
+    @Query("SELECT DISTINCT category FROM products WHERE (itemType = 'PRODUCT' OR itemType IS NULL) ORDER BY category ASC")
     fun getCategories(): Flow<List<String>>
 
     @Query("SELECT * FROM products WHERE id = :productId LIMIT 1")

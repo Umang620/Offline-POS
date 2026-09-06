@@ -23,6 +23,8 @@ class PosRepository(
     val activeProducts: Flow<List<ProductEntity>> = productDao.getActiveProducts()
     val categories: Flow<List<String>> = productDao.getCategories()
 
+    fun getProductsByType(itemType: String): Flow<List<ProductEntity>> = productDao.getProductsByType(itemType)
+
     val allOrdersWithItems: Flow<List<OrderWithItems>> = orderDao.getAllOrdersWithItems()
     val paidOrdersWithItems: Flow<List<OrderWithItems>> = orderDao.getPaidOrdersWithItems()
     val unpaidOrdersWithItems: Flow<List<OrderWithItems>> = orderDao.getUnpaidOrdersWithItems()
