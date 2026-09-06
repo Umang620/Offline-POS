@@ -29,6 +29,26 @@ interface OrderDao {
     @Query("UPDATE orders SET orderNumber = :orderNumber WHERE id = :orderId")
     suspend fun updateOrderNumber(orderId: Long, orderNumber: String): Int
 
+    @Query("SELECT * FROM order_items WHERE orderId = :orderId")
+    suspend fun getOrderItemsByOrderId(orderId: Long): List<OrderItemEntity>
+
+    @Query("DELETE FROM order_items WHERE orderId = :orderId")
+    suspend fun deleteOrderItemsByOrderId(orderId: Long): Int
+
+    @Query("UPDATE orders SET orderNumber = :orderNumber, totalAmount = :totalAmount, totalItems = :totalItems, status = :status, paymentMethod = :paymentMethod, cashReceived = :cashReceived, changeAmount = :changeAmount, gcashRefNumber = :gcashRefNumber, timestamp = :timestamp WHERE id = :orderId")
+    suspend fun updateOrder(
+        orderId: Long,
+        orderNumber: String,
+        totalAmount: Double,
+        totalItems: Int,
+        status: String,
+        paymentMethod: String,
+        cashReceived: Double?,
+        changeAmount: Double?,
+        gcashRefNumber: String?,
+        timestamp: Long = System.currentTimeMillis()
+    ): Int
+
     @Query("UPDATE orders SET status = 'PAID', paymentMethod = :paymentMethod, cashReceived = :cashReceived, changeAmount = :changeAmount, gcashRefNumber = :gcashRefNumber, timestamp = :timestamp WHERE id = :orderId")
     suspend fun markOrderAsPaid(
         orderId: Long,

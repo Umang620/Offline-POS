@@ -59,12 +59,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.umang620.offline_pos.data.local.ExpenseEntity
 import com.umang620.offline_pos.ui.theme.DangerRed
 import com.umang620.offline_pos.ui.theme.GlassCard
 import com.umang620.offline_pos.ui.theme.SecondaryText
+import com.umang620.offline_pos.utils.formatMoney
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -78,6 +81,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel) {
 
     var showDatePicker by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var showTotalExpensesDialog by remember { mutableStateOf(false) }
     var expenseToDelete by remember { mutableStateOf<ExpenseEntity?>(null) }
 
     val isToday = remember(selectedDate) {
@@ -176,9 +180,47 @@ fun ExpensesScreen(viewModel: ExpensesViewModel) {
                 }
             }
 
+            if (showTotalExpensesDialog) {
+                AlertDialog(
+                    onDismissRequest = { showTotalExpensesDialog = false },
+                    properties = DialogProperties(usePlatformDefaultWidth = false),
+                    modifier = Modifier
+                        .fillMaxWidth(0.92f)
+                        .padding(vertical = 16.dp),
+                    title = {
+                        Text(
+                            text = if (isToday) "Total Expenses Today" else "Total Expenses for Selected Date",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    text = {
+                        Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                            Text(
+                                text = formatMoney(totalExpenses),
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = DangerRed
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Date: $dateLabel",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showTotalExpensesDialog = false }) {
+                            Text("Close")
+                        }
+                    }
+                )
+            }
+
             // Total Expenses Glass Card
             GlassCard(
                 modifier = Modifier.fillMaxWidth(),
+                onClick = { showTotalExpensesDialog = true },
                 shape = RoundedCornerShape(16.dp),
                 backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
                 elevation = 3.dp
@@ -198,7 +240,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel) {
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = String.format(Locale.US, "₱%.2f", totalExpenses),
+                            text = formatMoney(totalExpenses),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = DangerRed
@@ -297,11 +339,83 @@ fun ExpenseCard(
     expense: ExpenseEntity,
     onDelete: () -> Unit
 ) {
+    var showDetailsDialog by remember { mutableStateOf(false) }
     val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.getDefault()) }
     val formattedDate = remember(expense.timestamp) { dateFormat.format(Date(expense.timestamp)) }
+    val titleText = expense.description.ifBlank { expense.category }
+
+    if (showDetailsDialog) {
+        AlertDialog(
+            onDismissRequest = { showDetailsDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .padding(vertical = 16.dp),
+            title = {
+                Text(
+                    text = "Expense Details",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(
+                        text = titleText,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Amount: ${formatMoney(expense.amount)}",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = DangerRed
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Category: ${expense.category}",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Payment Method: ${expense.paymentMethod}",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (expense.description.isNotBlank()) {
+                        Text(
+                            text = "Description: ${expense.description}",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                    Text(
+                        text = "Date & Time: $formattedDate",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDetailsDialog = false }) {
+                    Text("Close")
+                }
+            },
+            dismissButton = {
+                IconButton(onClick = {
+                    showDetailsDialog = false
+                    onDelete()
+                }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = SecondaryText)
+                }
+            }
+        )
+    }
 
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
+        onClick = { showDetailsDialog = true },
         shape = RoundedCornerShape(14.dp),
         backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
         elevation = 2.dp
@@ -318,26 +432,37 @@ fun ExpenseCard(
                     text = expense.description.ifBlank { expense.category },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "Category: ${expense.category} • Paid via ${expense.paymentMethod}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = formattedDate,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 8.dp)
+            ) {
                 Text(
-                    text = String.format(Locale.US, "₱%.2f", expense.amount),
+                    text = formatMoney(expense.amount),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = DangerRed
+                    color = DangerRed,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 IconButton(onClick = onDelete) {

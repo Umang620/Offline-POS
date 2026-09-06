@@ -298,7 +298,17 @@ fun MainAppScreen(
                     modifier = Modifier.weight(1f),
                     containerColor = MaterialTheme.colorScheme.background
                 ) { innerPadding ->
-                    TabContent(selectedTab, innerPadding, posViewModel, unpaidOrdersViewModel, salesViewModel, expensesViewModel, dailySummaryViewModel, inventoryViewModel)
+                    TabContent(
+                        selectedTab = selectedTab,
+                        innerPadding = innerPadding,
+                        posViewModel = posViewModel,
+                        unpaidOrdersViewModel = unpaidOrdersViewModel,
+                        salesViewModel = salesViewModel,
+                        expensesViewModel = expensesViewModel,
+                        dailySummaryViewModel = dailySummaryViewModel,
+                        inventoryViewModel = inventoryViewModel,
+                        onSelectTab = { selectedTab = it }
+                    )
                 }
             }
         } else {
@@ -367,7 +377,17 @@ fun MainAppScreen(
                     }
                 }
             ) { innerPadding ->
-                TabContent(selectedTab, innerPadding, posViewModel, unpaidOrdersViewModel, salesViewModel, expensesViewModel, dailySummaryViewModel, inventoryViewModel)
+                TabContent(
+                    selectedTab = selectedTab,
+                    innerPadding = innerPadding,
+                    posViewModel = posViewModel,
+                    unpaidOrdersViewModel = unpaidOrdersViewModel,
+                    salesViewModel = salesViewModel,
+                    expensesViewModel = expensesViewModel,
+                    dailySummaryViewModel = dailySummaryViewModel,
+                    inventoryViewModel = inventoryViewModel,
+                    onSelectTab = { selectedTab = it }
+                )
             }
         }
     }
@@ -382,7 +402,8 @@ fun TabContent(
     salesViewModel: SalesViewModel,
     expensesViewModel: ExpensesViewModel,
     dailySummaryViewModel: DailySummaryViewModel,
-    inventoryViewModel: InventoryViewModel
+    inventoryViewModel: InventoryViewModel,
+    onSelectTab: (PosTab) -> Unit = {}
 ) {
     when (selectedTab) {
         PosTab.REGISTER -> {
@@ -392,7 +413,13 @@ fun TabContent(
         }
         PosTab.UNPAID -> {
             ScaffoldContentWrapper(innerPadding) {
-                UnpaidOrdersScreen(viewModel = unpaidOrdersViewModel)
+                UnpaidOrdersScreen(
+                    viewModel = unpaidOrdersViewModel,
+                    onEditOrder = { orderWithItems ->
+                        posViewModel.loadUnpaidOrderForEditing(orderWithItems)
+                        onSelectTab(PosTab.REGISTER)
+                    }
+                )
             }
         }
         PosTab.SALES -> {

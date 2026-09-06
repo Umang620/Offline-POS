@@ -103,7 +103,9 @@ class PosRepository(
         isUnpaid: Boolean = false,
         cashReceived: Double? = null,
         changeAmount: Double? = null,
-        gcashRefNumber: String? = null
+        gcashRefNumber: String? = null,
+        orderName: String = "",
+        editingOrderId: Long? = null
     ): Result<Long> {
         if (cartItems.isEmpty()) {
             return Result.failure(IllegalArgumentException("Cart is empty"))
@@ -114,41 +116,83 @@ class PosRepository(
         val status = if (isUnpaid) "UNPAID" else "PAID"
         val timestamp = System.currentTimeMillis()
 
-        val order = OrderEntity(
-            orderNumber = "",
-            timestamp = timestamp,
-            totalAmount = totalAmount,
-            paymentMethod = if (isUnpaid) "Unpaid" else paymentMethod,
-            totalItems = totalItems,
-            status = status,
-            cashReceived = if (!isUnpaid && paymentMethod == "Cash") cashReceived else null,
-            changeAmount = if (!isUnpaid && paymentMethod == "Cash") changeAmount else null,
-            gcashRefNumber = if (!isUnpaid && paymentMethod == "GCash") gcashRefNumber else null
-        )
+        if (editingOrderId != null) {
+            val oldItems = orderDao.getOrderItemsByOrderId(editingOrderId)
+            oldItems.forEach { oldItem ->
+                productDao.increaseStock(oldItem.productId, oldItem.quantity)
+            }
+            orderDao.deleteOrderItemsByOrderId(editingOrderId)
 
-        val orderId = orderDao.insertOrder(order)
-        val formattedOrderNumber = "ORD-${SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date(timestamp))}-${String.format(Locale.US, "%04d", orderId)}"
-        orderDao.updateOrderNumber(orderId, formattedOrderNumber)
+            val baseOrderNumber = "ORD-${SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date(timestamp))}-${String.format(Locale.US, "%04d", editingOrderId)}"
+            val formattedOrderNumber = if (orderName.isNotBlank()) "$orderName - $baseOrderNumber" else baseOrderNumber
 
-        val orderItems = cartItems.map { cartItem ->
-            OrderItemEntity(
-                orderId = orderId,
-                productId = cartItem.product.id,
-                productName = cartItem.product.name,
-                unitPrice = cartItem.product.price,
-                quantity = cartItem.quantity,
-                subtotal = cartItem.subtotal
+            orderDao.updateOrder(
+                orderId = editingOrderId,
+                orderNumber = formattedOrderNumber,
+                totalAmount = totalAmount,
+                totalItems = totalItems,
+                status = status,
+                paymentMethod = if (isUnpaid) "Unpaid" else paymentMethod,
+                cashReceived = if (!isUnpaid && paymentMethod == "Cash") cashReceived else null,
+                changeAmount = if (!isUnpaid && paymentMethod == "Cash") changeAmount else null,
+                gcashRefNumber = if (!isUnpaid && paymentMethod == "GCash") gcashRefNumber else null,
+                timestamp = timestamp
             )
+
+            val newOrderItems = cartItems.map { cartItem ->
+                OrderItemEntity(
+                    orderId = editingOrderId,
+                    productId = cartItem.product.id,
+                    productName = cartItem.product.name,
+                    unitPrice = cartItem.product.price,
+                    quantity = cartItem.quantity,
+                    subtotal = cartItem.subtotal
+                )
+            }
+            orderDao.insertOrderItems(newOrderItems)
+
+            cartItems.forEach { cartItem ->
+                productDao.reduceStock(cartItem.product.id, cartItem.quantity)
+            }
+
+            return Result.success(editingOrderId)
+        } else {
+            val order = OrderEntity(
+                orderNumber = "",
+                timestamp = timestamp,
+                totalAmount = totalAmount,
+                paymentMethod = if (isUnpaid) "Unpaid" else paymentMethod,
+                totalItems = totalItems,
+                status = status,
+                cashReceived = if (!isUnpaid && paymentMethod == "Cash") cashReceived else null,
+                changeAmount = if (!isUnpaid && paymentMethod == "Cash") changeAmount else null,
+                gcashRefNumber = if (!isUnpaid && paymentMethod == "GCash") gcashRefNumber else null
+            )
+
+            val orderId = orderDao.insertOrder(order)
+            val baseOrderNumber = "ORD-${SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date(timestamp))}-${String.format(Locale.US, "%04d", orderId)}"
+            val formattedOrderNumber = if (orderName.isNotBlank()) "$orderName - $baseOrderNumber" else baseOrderNumber
+            orderDao.updateOrderNumber(orderId, formattedOrderNumber)
+
+            val orderItems = cartItems.map { cartItem ->
+                OrderItemEntity(
+                    orderId = orderId,
+                    productId = cartItem.product.id,
+                    productName = cartItem.product.name,
+                    unitPrice = cartItem.product.price,
+                    quantity = cartItem.quantity,
+                    subtotal = cartItem.subtotal
+                )
+            }
+
+            orderDao.insertOrderItems(orderItems)
+
+            cartItems.forEach { cartItem ->
+                productDao.reduceStock(cartItem.product.id, cartItem.quantity)
+            }
+
+            return Result.success(orderId)
         }
-
-        orderDao.insertOrderItems(orderItems)
-
-        // Deduct stock
-        cartItems.forEach { cartItem ->
-            productDao.reduceStock(cartItem.product.id, cartItem.quantity)
-        }
-
-        return Result.success(orderId)
     }
 
     suspend fun markOrderAsPaid(

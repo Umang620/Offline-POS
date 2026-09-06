@@ -83,6 +83,7 @@ import com.umang620.offline_pos.ui.theme.GlassSurface
 import com.umang620.offline_pos.ui.theme.SuccessGreen
 import com.umang620.offline_pos.ui.theme.WarningOrange
 import kotlinx.coroutines.launch
+import com.umang620.offline_pos.utils.formatMoney
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -94,6 +95,8 @@ fun RegisterScreen(viewModel: PosViewModel) {
     val categories by viewModel.availableCategories.collectAsState()
     val products by viewModel.filteredProducts.collectAsState(initial = emptyList())
     val cartItems by viewModel.cartItems.collectAsState()
+    val editingOrder by viewModel.editingOrder.collectAsState()
+    val orderNameState by viewModel.orderName.collectAsState()
 
     var showCartSheet by remember { mutableStateOf(false) }
     var showCheckoutDialog by remember { mutableStateOf(false) }
@@ -125,6 +128,47 @@ fun RegisterScreen(viewModel: PosViewModel) {
                 .fillMaxSize()
                 .padding(bottom = if (cartItems.isNotEmpty()) 84.dp else 0.dp)
         ) {
+            if (editingOrder != null) {
+                GlassSurface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    backgroundColor = WarningOrange.copy(alpha = 0.15f),
+                    borderColor = WarningOrange.copy(alpha = 0.5f),
+                    elevation = 2.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Editing Unpaid Order",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = WarningOrange,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = editingOrder?.order?.orderNumber?.ifBlank { "Order #${editingOrder?.order?.id}" } ?: "",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        TextButton(
+                            onClick = { viewModel.cancelEditingOrder() }
+                        ) {
+                            Text("Cancel Edit", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
             // Header / Search Bar
             SurfaceHeader(
                 searchQuery = searchQuery,
@@ -244,7 +288,7 @@ fun RegisterScreen(viewModel: PosViewModel) {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = String.format(Locale.US, "₱%.2f", totalAmount),
+                                text = formatMoney(totalAmount),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -286,14 +330,17 @@ fun RegisterScreen(viewModel: PosViewModel) {
     if (showCheckoutDialog) {
         CheckoutDialog(
             totalAmount = totalAmount,
+            initialOrderName = orderNameState,
+            isEditing = editingOrder != null,
             onDismiss = { showCheckoutDialog = false },
-            onConfirmPayment = { method, isUnpaid, cashReceived, changeAmount, gcashRef ->
+            onConfirmPayment = { method, isUnpaid, cashReceived, changeAmount, gcashRef, customerName ->
                 viewModel.processCheckout(
                     paymentMethod = method,
                     isUnpaid = isUnpaid,
                     cashReceived = cashReceived,
                     changeAmount = changeAmount,
-                    gcashRefNumber = gcashRef
+                    gcashRefNumber = gcashRef,
+                    customerName = customerName
                 )
             }
         )
@@ -393,7 +440,7 @@ fun ProductCard(
             Spacer(modifier = Modifier.height(12.dp))
             Column {
                 Text(
-                    text = String.format(Locale.US, "₱%.2f", product.price),
+                    text = formatMoney(product.price),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
@@ -484,7 +531,7 @@ fun CartBottomSheet(
                 ) {
                     Text("Total Amount:", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text(
-                        text = String.format(Locale.US, "₱%.2f", totalAmount),
+                        text = formatMoney(totalAmount),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -528,7 +575,7 @@ fun CartItemRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(cartItem.product.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    String.format(Locale.US, "₱%.2f × %d = ₱%.2f", cartItem.product.price, cartItem.quantity, cartItem.subtotal),
+                    "${formatMoney(cartItem.product.price)} × ${cartItem.quantity} = ${formatMoney(cartItem.subtotal)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -553,12 +600,15 @@ fun CartItemRow(
 @Composable
 fun CheckoutDialog(
     totalAmount: Double,
+    initialOrderName: String = "",
+    isEditing: Boolean = false,
     onDismiss: () -> Unit,
-    onConfirmPayment: (paymentMethod: String, isUnpaid: Boolean, cashReceived: Double?, changeAmount: Double?, gcashRef: String?) -> Unit
+    onConfirmPayment: (paymentMethod: String, isUnpaid: Boolean, cashReceived: Double?, changeAmount: Double?, gcashRef: String?, customerName: String) -> Unit
 ) {
     var selectedMethod by remember { mutableStateOf("Cash") }
     var cashReceivedStr by remember { mutableStateOf("") }
     var gcashRefStr by remember { mutableStateOf("") }
+    var customerName by remember { mutableStateOf(initialOrderName) }
 
     val cashReceived = cashReceivedStr.toDoubleOrNull() ?: 0.0
     val changeAmount = cashReceived - totalAmount
@@ -584,13 +634,31 @@ fun CheckoutDialog(
                     .verticalScroll(rememberScrollState())
             ) {
                 Text(
-                    text = "Complete Payment",
+                    text = if (isEditing) "Update Order / Checkout" else "Complete Order",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                OutlinedTextField(
+                    value = customerName,
+                    onValueChange = { customerName = it },
+                    label = { Text("Customer / Order Name (Optional)") },
+                    placeholder = { Text("e.g. Table 5, John, Drive-Thru...") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Total Due Section
                 GlassSurface(
@@ -611,7 +679,7 @@ fun CheckoutDialog(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = String.format(Locale.US, "₱%.2f", totalAmount),
+                            text = formatMoney(totalAmount),
                             style = MaterialTheme.typography.headlineLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -692,7 +760,7 @@ fun CheckoutDialog(
                                     shape = RoundedCornerShape(10.dp)
                                 ) {
                                     Text(
-                                        text = if (amount == totalAmount) "Exact (₱${String.format(Locale.US, "%.2f", totalAmount)})" else "₱${amount.toInt()}",
+                                        text = if (amount == totalAmount) "Exact (${formatMoney(totalAmount)})" else "₱${amount.toInt()}",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -721,7 +789,7 @@ fun CheckoutDialog(
                                     Column {
                                         Text("Change Due", style = MaterialTheme.typography.labelSmall, color = SuccessGreen)
                                         Text(
-                                            text = String.format(Locale.US, "₱%.2f", changeAmount),
+                                            text = formatMoney(changeAmount),
                                             color = SuccessGreen,
                                             fontWeight = FontWeight.Bold,
                                             style = MaterialTheme.typography.titleMedium
@@ -738,7 +806,7 @@ fun CheckoutDialog(
                                 elevation = 1.dp
                             ) {
                                 Text(
-                                    text = String.format(Locale.US, "Short by ₱%.2f", -changeAmount),
+                                    text = "Short by ${formatMoney(-changeAmount)}",
                                     color = MaterialTheme.colorScheme.error,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(12.dp),
@@ -766,7 +834,6 @@ fun CheckoutDialog(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Action Buttons cleanly stacked vertically in dedicated space
                 Button(
                     onClick = {
                         onConfirmPayment(
@@ -774,7 +841,8 @@ fun CheckoutDialog(
                             false,
                             if (selectedMethod == "Cash") cashReceived else null,
                             if (selectedMethod == "Cash") changeAmount else null,
-                            if (selectedMethod == "GCash") gcashRefStr.ifBlank { null } else null
+                            if (selectedMethod == "GCash") gcashRefStr.ifBlank { null } else null,
+                            customerName.trim()
                         )
                     },
                     enabled = isCashValid,
@@ -784,14 +852,18 @@ fun CheckoutDialog(
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("Complete Transaction", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text(
+                        text = if (isEditing) "Complete & Pay Order" else "Complete Transaction",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
                 OutlinedButton(
                     onClick = {
-                        onConfirmPayment("Unpaid", true, null, null, null)
+                        onConfirmPayment("Unpaid", true, null, null, null, customerName.trim())
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -799,7 +871,12 @@ fun CheckoutDialog(
                     shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.5.dp, WarningOrange)
                 ) {
-                    Text("Save as UNPAID", color = WarningOrange, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text(
+                        text = if (isEditing) "Update Unpaid Order" else "Save as UNPAID",
+                        color = WarningOrange,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))

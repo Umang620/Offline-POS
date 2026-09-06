@@ -1,6 +1,5 @@
 package com.umang620.offline_pos.ui.unpaid
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -28,10 +27,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoneyOff
 import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
@@ -68,18 +67,23 @@ import com.umang620.offline_pos.ui.theme.GlassCard
 import com.umang620.offline_pos.ui.theme.GlassSurface
 import com.umang620.offline_pos.ui.theme.SuccessGreen
 import com.umang620.offline_pos.ui.theme.WarningOrange
+import com.umang620.offline_pos.utils.formatMoney
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UnpaidOrdersScreen(viewModel: UnpaidOrdersViewModel) {
+fun UnpaidOrdersScreen(
+    viewModel: UnpaidOrdersViewModel,
+    onEditOrder: ((OrderWithItems) -> Unit)? = null
+) {
     val unpaidOrders by viewModel.unpaidOrders.collectAsState()
     val unpaidTotal by viewModel.unpaidTotal.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
 
     var showDatePicker by remember { mutableStateOf(false) }
+    var showSummaryDialog by remember { mutableStateOf(false) }
     var selectedOrderToPay by remember { mutableStateOf<OrderWithItems?>(null) }
 
     val isToday = remember(selectedDate) {
@@ -166,9 +170,47 @@ fun UnpaidOrdersScreen(viewModel: UnpaidOrdersViewModel) {
             }
         }
 
+        if (showSummaryDialog) {
+            AlertDialog(
+                onDismissRequest = { showSummaryDialog = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false),
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .padding(vertical = 16.dp),
+                title = {
+                    Text(
+                        text = if (isToday) "Unpaid Total Today" else "Unpaid Total for Selected Date",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        Text(
+                            text = formatMoney(unpaidTotal),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF92400E)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Date: $dateLabel",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showSummaryDialog = false }) {
+                        Text("Close")
+                    }
+                }
+            )
+        }
+
         // Summary Glass Card
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
+            onClick = { showSummaryDialog = true },
             shape = RoundedCornerShape(16.dp),
             backgroundColor = Color(0xFFFEF3C7).copy(alpha = 0.85f),
             borderColor = Color(0xFFFDE68A),
@@ -189,7 +231,7 @@ fun UnpaidOrdersScreen(viewModel: UnpaidOrdersViewModel) {
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = String.format(Locale.US, "₱%.2f", unpaidTotal),
+                        text = formatMoney(unpaidTotal),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF92400E)
@@ -227,7 +269,8 @@ fun UnpaidOrdersScreen(viewModel: UnpaidOrdersViewModel) {
                 items(unpaidOrders, key = { it.order.id }) { orderWithItems ->
                     UnpaidOrderCard(
                         orderWithItems = orderWithItems,
-                        onPayClick = { selectedOrderToPay = orderWithItems }
+                        onPayClick = { selectedOrderToPay = orderWithItems },
+                        onEditClick = if (onEditOrder != null) { { onEditOrder(orderWithItems) } } else null
                     )
                 }
             }
@@ -255,17 +298,126 @@ fun UnpaidOrdersScreen(viewModel: UnpaidOrdersViewModel) {
 @Composable
 fun UnpaidOrderCard(
     orderWithItems: OrderWithItems,
-    onPayClick: () -> Unit
+    onPayClick: () -> Unit,
+    onEditClick: (() -> Unit)? = null
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var showDetailsDialog by remember { mutableStateOf(false) }
     val order = orderWithItems.order
     val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.getDefault()) }
     val formattedDate = remember(order.timestamp) { dateFormat.format(Date(order.timestamp)) }
     val orderTitle = if (order.orderNumber.isNotBlank()) order.orderNumber else "Order #${order.id}"
 
+    if (showDetailsDialog) {
+        Dialog(
+            onDismissRequest = { showDetailsDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            GlassSurface(
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .widthIn(max = 520.dp)
+                    .padding(vertical = 16.dp),
+                shape = RoundedCornerShape(24.dp),
+                backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                borderColor = Color.White.copy(alpha = 0.90f),
+                elevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .padding(20.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = "Order Details",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(text = "Order Name/ID: $orderTitle", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = "Status: UNPAID", style = MaterialTheme.typography.bodyLarge, color = Color(0xFFB45309), fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = "Date: $formattedDate", style = MaterialTheme.typography.bodyLarge)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = "Items: ${order.totalItems}", style = MaterialTheme.typography.bodyLarge)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Total Amount: ${formatMoney(order.totalAmount)}", 
+                        style = MaterialTheme.typography.titleMedium, 
+                        fontWeight = FontWeight.Bold,
+                        color = WarningOrange
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text(
+                        text = "Itemized Breakdown:",
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    orderWithItems.items.forEach { item ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "${item.quantity}x ${item.productName}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = formatMoney(item.subtotal),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = { showDetailsDialog = false }) {
+                            Text("Close")
+                        }
+                        if (onEditClick != null) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            OutlinedButton(onClick = {
+                                showDetailsDialog = false
+                                onEditClick()
+                            }) {
+                                Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Edit Order")
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Button(onClick = { 
+                            showDetailsDialog = false
+                            onPayClick() 
+                        }) {
+                            Text("Settle Payment")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
-        onClick = { expanded = !expanded },
+        onClick = { showDetailsDialog = true },
         shape = RoundedCornerShape(16.dp),
         backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
         elevation = 2.dp
@@ -286,7 +438,7 @@ fun UnpaidOrderCard(
                             text = orderTitle,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            maxLines = 1,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false)
                         )
@@ -321,67 +473,36 @@ fun UnpaidOrderCard(
 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = String.format(Locale.US, "₱%.2f", order.totalAmount),
+                        text = formatMoney(order.totalAmount),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = WarningOrange
+                        color = WarningOrange,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        onClick = onPayClick,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Icon(Icons.Default.Payment, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Settle Payment", fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = if (expanded) "Show Less" else "Preview Items",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            AnimatedVisibility(visible = expanded) {
-                Column(modifier = Modifier.padding(top = 12.dp)) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Itemized Breakdown:",
-                        fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    orderWithItems.items.forEach { item ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 2.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (onEditClick != null) {
+                            OutlinedButton(
+                                onClick = onEditClick,
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = "Edit / Add Items", modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Edit", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
+                        Button(
+                            onClick = onPayClick,
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
                         ) {
-                            Text(
-                                text = "${item.quantity}x ${item.productName}",
-                                style = MaterialTheme.typography.bodySmall,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = String.format(Locale.US, "₱%.2f", item.subtotal),
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium
-                            )
+                            Icon(Icons.Default.Payment, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Settle", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                     }
                 }
@@ -453,7 +574,7 @@ fun PayUnpaidOrderDialog(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = String.format(Locale.US, "₱%.2f", totalAmount),
+                            text = formatMoney(totalAmount),
                             style = MaterialTheme.typography.headlineLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -532,7 +653,7 @@ fun PayUnpaidOrderDialog(
                                     shape = RoundedCornerShape(10.dp)
                                 ) {
                                     Text(
-                                        text = if (amount == totalAmount) "Exact (₱${String.format(Locale.US, "%.2f", totalAmount)})" else "₱${amount.toInt()}",
+                                        text = if (amount == totalAmount) "Exact (${formatMoney(totalAmount)})" else "₱${amount.toInt()}",
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -561,7 +682,7 @@ fun PayUnpaidOrderDialog(
                                     Column {
                                         Text("Change Due", style = MaterialTheme.typography.labelSmall, color = SuccessGreen)
                                         Text(
-                                            text = String.format(Locale.US, "₱%.2f", changeAmount),
+                                            text = formatMoney(changeAmount),
                                             color = SuccessGreen,
                                             fontWeight = FontWeight.Bold,
                                             style = MaterialTheme.typography.titleMedium
@@ -578,7 +699,7 @@ fun PayUnpaidOrderDialog(
                                 elevation = 1.dp
                             ) {
                                 Text(
-                                    text = String.format(Locale.US, "Short by ₱%.2f", -changeAmount),
+                                    text = "Short by ${formatMoney(-changeAmount)}",
                                     color = MaterialTheme.colorScheme.error,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(12.dp),

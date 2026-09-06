@@ -74,6 +74,7 @@ import com.umang620.offline_pos.ui.theme.GlassCard
 import com.umang620.offline_pos.ui.theme.GlassSurface
 import com.umang620.offline_pos.ui.theme.SecondaryText
 import com.umang620.offline_pos.ui.theme.SuccessGreen
+import com.umang620.offline_pos.utils.formatMoney
 import java.util.Locale
 
 fun formatStockDisplay(quantity: Int): String {
@@ -543,7 +544,7 @@ fun InventoryItemCard(
                 ) {
                     if (!isRawMaterial) {
                         Text(
-                            text = String.format(Locale.US, "₱%.2f", item.price),
+                            text = formatMoney(item.price),
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary,

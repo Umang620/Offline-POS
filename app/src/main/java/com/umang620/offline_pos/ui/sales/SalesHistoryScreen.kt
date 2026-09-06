@@ -1,6 +1,5 @@
 package com.umang620.offline_pos.ui.sales
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +16,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
@@ -24,8 +25,6 @@ import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -56,11 +55,13 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import com.umang620.offline_pos.data.local.OrderWithItems
 import com.umang620.offline_pos.ui.theme.DangerRed
 import com.umang620.offline_pos.ui.theme.GlassCard
 import com.umang620.offline_pos.ui.theme.SecondaryText
 import com.umang620.offline_pos.ui.theme.SuccessGreen
+import com.umang620.offline_pos.utils.formatMoney
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -168,7 +169,7 @@ fun SalesHistoryScreen(viewModel: SalesViewModel) {
         ) {
             KpiCard(
                 title = "Total Revenue",
-                value = String.format(Locale.US, "₱%.2f", totalRevenue),
+                value = formatMoney(totalRevenue),
                 icon = Icons.AutoMirrored.Filled.TrendingUp,
                 modifier = Modifier.weight(1f)
             )
@@ -277,8 +278,43 @@ fun KpiCard(
     icon: ImageVector,
     modifier: Modifier = Modifier
 ) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .padding(vertical = 16.dp),
+            title = {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
     GlassCard(
         modifier = modifier,
+        onClick = { showDialog = true },
         shape = RoundedCornerShape(16.dp),
         backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
         elevation = 2.dp
@@ -326,7 +362,7 @@ fun OrderCard(
     onVoid: () -> Unit,
     onDelete: () -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
+    var showDetailsDialog by remember { mutableStateOf(false) }
     val order = orderWithItems.order
     val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.getDefault()) }
     val formattedDate = remember(order.timestamp) { dateFormat.format(Date(order.timestamp)) }
@@ -334,9 +370,124 @@ fun OrderCard(
     val isUnpaid = order.status == "UNPAID"
     val orderTitle = if (order.orderNumber.isNotBlank()) order.orderNumber else "Order #${order.id}"
 
+    if (showDetailsDialog) {
+        AlertDialog(
+            onDismissRequest = { showDetailsDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .padding(vertical = 16.dp),
+            title = {
+                Text(
+                    text = "Order Details",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    Text(text = "Order Name/ID: $orderTitle", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Status: ${order.status}", 
+                        style = MaterialTheme.typography.bodyLarge, 
+                        color = when {
+                            isVoided -> SecondaryText
+                            isUnpaid -> Color(0xFFB45309)
+                            else -> SuccessGreen
+                        },
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = "Date: $formattedDate", style = MaterialTheme.typography.bodyLarge)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = "Items: ${order.totalItems}", style = MaterialTheme.typography.bodyLarge)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = "Payment Method: ${order.paymentMethod}", style = MaterialTheme.typography.bodyLarge)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Total Amount: ${formatMoney(order.totalAmount)}", 
+                        style = MaterialTheme.typography.titleMedium, 
+                        fontWeight = FontWeight.Bold,
+                        textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None
+                    )
+
+                    if (order.cashReceived != null && order.changeAmount != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = "Cash Received: ${formatMoney(order.cashReceived)}", style = MaterialTheme.typography.bodyMedium)
+                        Text(text = "Change: ${formatMoney(order.changeAmount)}", style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (!order.gcashRefNumber.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = "GCash Ref No: ${order.gcashRefNumber}", style = MaterialTheme.typography.bodyMedium)
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "Receipt Items:",
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    orderWithItems.items.forEach { item ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "${item.quantity}x ${item.productName}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = formatMoney(item.subtotal),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDetailsDialog = false }) {
+                    Text("Close")
+                }
+            },
+            dismissButton = {
+                if (!isVoided) {
+                    OutlinedButton(
+                        onClick = {
+                            showDetailsDialog = false
+                            onVoid()
+                        },
+                        border = BorderStroke(1.dp, DangerRed),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.Block, contentDescription = null, tint = DangerRed, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Void", color = DangerRed)
+                    }
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(onClick = {
+                    showDetailsDialog = false
+                    onDelete()
+                }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete Record", tint = SecondaryText)
+                }
+            }
+        )
+    }
+
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
-        onClick = { expanded = !expanded },
+        onClick = { showDetailsDialog = true },
         shape = RoundedCornerShape(16.dp),
         backgroundColor = when {
             isVoided -> Color(0xFFF1F5F9).copy(alpha = 0.85f)
@@ -383,7 +534,7 @@ fun OrderCard(
                                 style = MaterialTheme.typography.titleMedium,
                                 color = if (isUnpaid) Color(0xFF451A03) else MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f, fill = false),
-                                maxLines = 1,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                                 textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None
                             )
@@ -425,7 +576,7 @@ fun OrderCard(
 
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = String.format(Locale.US, "₱%.2f", order.totalAmount),
+                        text = formatMoney(order.totalAmount),
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleLarge,
                         color = when {
@@ -433,105 +584,17 @@ fun OrderCard(
                             isUnpaid -> Color(0xFF451A03)
                             else -> MaterialTheme.colorScheme.onSurface
                         },
-                        textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None
+                        textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = "${order.paymentMethod} • ${order.totalItems} item${if (order.totalItems > 1) "s" else ""}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (isUnpaid) Color(0xFF78350F) else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (isUnpaid) Color(0xFF78350F) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = if (expanded) "Show Less" else "Show Details",
-                    tint = if (isUnpaid) Color(0xFF78350F) else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            AnimatedVisibility(visible = expanded) {
-                Column(modifier = Modifier.padding(top = 12.dp)) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    if (order.cashReceived != null && order.changeAmount != null) {
-                        Text(
-                            text = String.format(Locale.US, "Cash Received: ₱%.2f | Change: ₱%.2f", order.cashReceived, order.changeAmount),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium,
-                            color = if (isUnpaid) Color(0xFF78350F) else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    if (!order.gcashRefNumber.isNullOrBlank()) {
-                        Text(
-                            text = "GCash Ref No: ${order.gcashRefNumber}",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium,
-                            color = if (isUnpaid) Color(0xFF78350F) else MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Receipt Items:",
-                        fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (isUnpaid) Color(0xFF451A03) else MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    orderWithItems.items.forEach { item ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 2.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "${item.quantity}x ${item.productName}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (isUnpaid) Color(0xFF451A03) else MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = String.format(Locale.US, "₱%.2f", item.subtotal),
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium,
-                                color = if (isUnpaid) Color(0xFF451A03) else MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (!isVoided) {
-                            OutlinedButton(
-                                onClick = onVoid,
-                                shape = RoundedCornerShape(8.dp),
-                                border = BorderStroke(1.dp, DangerRed),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
-                            ) {
-                                Icon(Icons.Default.Block, contentDescription = null, tint = DangerRed, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Void", color = DangerRed, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                        }
-                        IconButton(onClick = onDelete) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete Record", tint = SecondaryText)
-                        }
-                    }
                 }
             }
         }

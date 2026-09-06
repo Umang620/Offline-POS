@@ -63,6 +63,7 @@ import com.umang620.offline_pos.ui.theme.GlassCard
 import com.umang620.offline_pos.ui.theme.GlassSurface
 import com.umang620.offline_pos.ui.theme.SuccessGreen
 import com.umang620.offline_pos.ui.theme.WarningOrange
+import com.umang620.offline_pos.utils.formatMoney
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -180,7 +181,7 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = String.format(Locale.US, "₱%.2f", allTimeTotalSales),
+                            text = formatMoney(allTimeTotalSales),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -597,7 +598,7 @@ fun UnifiedFinancialSummaryCard(
                     )
                 }
                 Text(
-                    text = String.format(Locale.US, "₱%.2f", totalSales),
+                    text = formatMoney(totalSales),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = SuccessGreen
@@ -609,7 +610,7 @@ fun UnifiedFinancialSummaryCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = String.format(Locale.US, "Cash: ₱%.2f  •  GCash: ₱%.2f", cashSales, gcashSales),
+                    text = "Cash: ${formatMoney(cashSales)}  •  GCash: ${formatMoney(gcashSales)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -641,7 +642,7 @@ fun UnifiedFinancialSummaryCard(
                     )
                 }
                 Text(
-                    text = String.format(Locale.US, "₱%.2f", totalExpenses),
+                    text = formatMoney(totalExpenses),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = DangerRed
@@ -653,7 +654,7 @@ fun UnifiedFinancialSummaryCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = String.format(Locale.US, "Cash: ₱%.2f  •  GCash: ₱%.2f", cashExpenses, gcashExpenses),
+                    text = "Cash: ${formatMoney(cashExpenses)}  •  GCash: ${formatMoney(gcashExpenses)}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -676,7 +677,7 @@ fun UnifiedFinancialSummaryCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = String.format(Locale.US, "₱%.2f", cashOnHand),
+                        text = formatMoney(cashOnHand),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -690,7 +691,7 @@ fun UnifiedFinancialSummaryCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = String.format(Locale.US, "₱%.2f", gcashRecorded),
+                        text = formatMoney(gcashRecorded),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -704,7 +705,7 @@ fun UnifiedFinancialSummaryCard(
                         color = Color(0xFF92400E)
                     )
                     Text(
-                        text = String.format(Locale.US, "₱%.2f", unpaidTotal),
+                        text = formatMoney(unpaidTotal),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = WarningOrange
@@ -922,7 +923,7 @@ fun RankedProductSalesSummaryRow(rank: Int, summary: ProductSalesSummary) {
         }
 
         Text(
-            text = String.format(Locale.US, "₱%.2f", summary.totalAmount),
+            text = formatMoney(summary.totalAmount),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
