@@ -1,30 +1,40 @@
 package com.umang620.offline_pos
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.MoneyOff
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.Receipt
-import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,8 +42,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.umang620.offline_pos.data.local.PosDatabase
 import com.umang620.offline_pos.data.repository.PosRepository
@@ -81,14 +95,26 @@ class MainActivity : ComponentActivity() {
         val inventoryViewModel: InventoryViewModel by viewModels { InventoryViewModel.Factory(repository) }
 
         setContent {
-            OfflinePOSTheme {
+            val context = LocalContext.current
+            val prefs = remember { context.getSharedPreferences("pos_settings", MODE_PRIVATE) }
+            var isDarkMode by remember { mutableStateOf(prefs.getBoolean("is_dark_mode", false)) }
+
+            val toggleDarkMode = {
+                val newMode = !isDarkMode
+                isDarkMode = newMode
+                prefs.edit().putBoolean("is_dark_mode", newMode).apply()
+            }
+
+            OfflinePOSTheme(darkTheme = isDarkMode) {
                 MainAppScreen(
                     posViewModel = posViewModel,
                     unpaidOrdersViewModel = unpaidOrdersViewModel,
                     salesViewModel = salesViewModel,
                     expensesViewModel = expensesViewModel,
                     dailySummaryViewModel = dailySummaryViewModel,
-                    inventoryViewModel = inventoryViewModel
+                    inventoryViewModel = inventoryViewModel,
+                    isDarkMode = isDarkMode,
+                    onToggleDarkMode = toggleDarkMode
                 )
             }
         }
@@ -102,7 +128,9 @@ fun MainAppScreen(
     salesViewModel: SalesViewModel,
     expensesViewModel: ExpensesViewModel,
     dailySummaryViewModel: DailySummaryViewModel,
-    inventoryViewModel: InventoryViewModel
+    inventoryViewModel: InventoryViewModel,
+    isDarkMode: Boolean,
+    onToggleDarkMode: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(PosTab.REGISTER) }
 
@@ -110,19 +138,59 @@ fun MainAppScreen(
         val isWideScreen = maxWidth > 600.dp
 
         if (isWideScreen) {
-            Row(modifier = Modifier.fillMaxSize()) {
-                NavigationRail {
+            Row(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                NavigationRail(
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    header = {
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                ) {
                     PosTab.entries.forEach { tab ->
+                        val isSelected = selectedTab == tab
                         NavigationRailItem(
-                            selected = (selectedTab == tab),
+                            selected = isSelected,
                             onClick = { selectedTab = tab },
                             icon = { Icon(tab.icon, contentDescription = tab.title) },
-                            label = { Text(tab.title) }
+                            label = {
+                                Text(
+                                    text = tab.title,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            },
+                            colors = NavigationRailItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // Compact Light/Dark Mode Toggle beside/below Inventory in Sidebar
+                    IconButton(
+                        onClick = onToggleDarkMode,
+                        modifier = Modifier
+                            .padding(bottom = 16.dp)
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                    ) {
+                        Icon(
+                            imageVector = if (isDarkMode) Icons.Default.WbSunny else Icons.Default.DarkMode,
+                            contentDescription = if (isDarkMode) "Light Mode" else "Dark Mode",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
                 Scaffold(
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    containerColor = MaterialTheme.colorScheme.background
                 ) { innerPadding ->
                     TabContent(selectedTab, innerPadding, posViewModel, unpaidOrdersViewModel, salesViewModel, expensesViewModel, dailySummaryViewModel, inventoryViewModel)
                 }
@@ -130,11 +198,16 @@ fun MainAppScreen(
         } else {
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
+                containerColor = MaterialTheme.colorScheme.background,
                 bottomBar = {
-                    NavigationBar {
+                    NavigationBar(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.90f),
+                        tonalElevation = 6.dp
+                    ) {
                         PosTab.entries.forEach { tab ->
+                            val isSelected = selectedTab == tab
                             NavigationBarItem(
-                                selected = (selectedTab == tab),
+                                selected = isSelected,
                                 onClick = { selectedTab = tab },
                                 icon = { Icon(tab.icon, contentDescription = tab.title) },
                                 label = {
@@ -142,12 +215,41 @@ fun MainAppScreen(
                                         text = tab.title,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
-                                        style = MaterialTheme.typography.labelSmall
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                     )
                                 },
-                                alwaysShowLabel = false // Helps fit 6 items on small screens
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.primary,
+                                    selectedTextColor = MaterialTheme.colorScheme.primary,
+                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                ),
+                                alwaysShowLabel = false
                             )
                         }
+
+                        // Compact Light / Dark toggle in bottom bar on phone view
+                        NavigationBarItem(
+                            selected = false,
+                            onClick = onToggleDarkMode,
+                            icon = {
+                                Icon(
+                                    imageVector = if (isDarkMode) Icons.Default.WbSunny else Icons.Default.DarkMode,
+                                    contentDescription = if (isDarkMode) "Light Mode" else "Dark Mode",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = if (isDarkMode) "Light" else "Dark",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            alwaysShowLabel = false
+                        )
                     }
                 }
             ) { innerPadding ->

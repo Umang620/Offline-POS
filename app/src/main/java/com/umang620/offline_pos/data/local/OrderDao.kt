@@ -59,4 +59,16 @@ interface OrderDao {
 
     @Query("SELECT COUNT(*) FROM orders WHERE status = 'PAID'")
     fun getTotalOrderCount(): Flow<Int>
+
+    @Query("SELECT COALESCE(SUM(totalAmount), 0.0) FROM orders WHERE status = 'PAID' AND timestamp BETWEEN :startOfDay AND :endOfDay")
+    fun getTotalRevenueByDate(startOfDay: Long, endOfDay: Long): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(totalAmount), 0.0) FROM orders WHERE status = 'PAID' AND paymentMethod = 'Cash' AND timestamp BETWEEN :startOfDay AND :endOfDay")
+    fun getCashSalesTotalByDate(startOfDay: Long, endOfDay: Long): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(totalAmount), 0.0) FROM orders WHERE status = 'PAID' AND paymentMethod = 'GCash' AND timestamp BETWEEN :startOfDay AND :endOfDay")
+    fun getGCashSalesTotalByDate(startOfDay: Long, endOfDay: Long): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(totalAmount), 0.0) FROM orders WHERE status = 'UNPAID' AND timestamp BETWEEN :startOfDay AND :endOfDay")
+    fun getUnpaidSalesTotalByDate(startOfDay: Long, endOfDay: Long): Flow<Double>
 }

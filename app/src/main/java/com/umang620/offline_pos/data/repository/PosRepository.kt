@@ -38,6 +38,15 @@ class PosRepository(
     val gcashExpensesTotal: Flow<Double> = expenseDao.getGCashExpensesTotal()
     val totalExpensesTotal: Flow<Double> = expenseDao.getTotalExpenses()
 
+    fun getTotalRevenueByDate(startOfDay: Long, endOfDay: Long) = orderDao.getTotalRevenueByDate(startOfDay, endOfDay)
+    fun getCashSalesTotalByDate(startOfDay: Long, endOfDay: Long) = orderDao.getCashSalesTotalByDate(startOfDay, endOfDay)
+    fun getGCashSalesTotalByDate(startOfDay: Long, endOfDay: Long) = orderDao.getGCashSalesTotalByDate(startOfDay, endOfDay)
+    fun getUnpaidSalesTotalByDate(startOfDay: Long, endOfDay: Long) = orderDao.getUnpaidSalesTotalByDate(startOfDay, endOfDay)
+
+    fun getTotalExpensesByDate(startOfDay: Long, endOfDay: Long) = expenseDao.getTotalExpensesByDate(startOfDay, endOfDay)
+    fun getCashExpensesTotalByDate(startOfDay: Long, endOfDay: Long) = expenseDao.getCashExpensesTotalByDate(startOfDay, endOfDay)
+    fun getGCashExpensesTotalByDate(startOfDay: Long, endOfDay: Long) = expenseDao.getGCashExpensesTotalByDate(startOfDay, endOfDay)
+
     suspend fun insertProduct(product: ProductEntity) {
         productDao.insertProduct(product)
     }

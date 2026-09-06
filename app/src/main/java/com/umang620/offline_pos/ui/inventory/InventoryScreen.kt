@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,17 +24,18 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,11 +44,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.umang620.offline_pos.data.local.ProductEntity
+import com.umang620.offline_pos.ui.theme.DangerRed
+import com.umang620.offline_pos.ui.theme.GlassCard
+import com.umang620.offline_pos.ui.theme.SecondaryText
+import com.umang620.offline_pos.ui.theme.SuccessGreen
+import androidx.compose.ui.text.style.TextOverflow
 import java.util.Locale
+
+fun formatStockDisplay(quantity: Int): String {
+    return when {
+        quantity >= 1_000_000 -> String.format(Locale.US, "%.1fM", quantity / 1_000_000.0)
+        quantity >= 100_000 -> "${quantity / 1000}k"
+        else -> quantity.toString()
+    }
+}
 
 @Composable
 fun InventoryScreen(viewModel: InventoryViewModel) {
@@ -56,8 +72,13 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
     var productToDelete by remember { mutableStateOf<ProductEntity?>(null) }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
+            FloatingActionButton(
+                onClick = { showAddDialog = true },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White
+            ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Product")
             }
         }
@@ -70,9 +91,10 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
         ) {
             Text(
                 text = "Inventory Management",
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 16.dp)
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(bottom = 12.dp)
             )
 
             if (products.isEmpty()) {
@@ -80,7 +102,11 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No products in inventory. Tap + to add one.")
+                    Text(
+                        text = "No products in inventory. Tap + to add one.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
                 }
             } else {
                 LazyColumn(
@@ -104,7 +130,7 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
 
     if (showAddDialog) {
         ProductFormDialog(
-            title = "Add Product",
+            title = "Add New Product",
             initialProduct = null,
             onDismiss = { showAddDialog = false },
             onSave = { name, price, category, stock, sku, isActive ->
@@ -116,7 +142,7 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
 
     productToEdit?.let { product ->
         ProductFormDialog(
-            title = "Edit Product",
+            title = "Edit Product Details",
             initialProduct = product,
             onDismiss = { productToEdit = null },
             onSave = { name, price, category, stock, sku, isActive ->
@@ -129,18 +155,22 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
     productToDelete?.let { product ->
         AlertDialog(
             onDismissRequest = { productToDelete = null },
-            title = { Text("Delete Product") },
-            text = { Text("Are you sure you want to delete '${product.name}'?") },
+            title = { Text("Delete Product", fontWeight = FontWeight.Bold) },
+            text = { Text("Are you sure you want to delete '${product.name}'? This product will be removed from inventory.") },
             confirmButton = {
-                Button(onClick = {
-                    viewModel.deleteProduct(product)
-                    productToDelete = null
-                }) {
-                    Text("Delete")
+                Button(
+                    onClick = {
+                        viewModel.deleteProduct(product)
+                        productToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Delete", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { productToDelete = null }) {
+                TextButton(onClick = { productToDelete = null }) {
                     Text("Cancel")
                 }
             }
@@ -157,87 +187,97 @@ fun InventoryProductCard(
 ) {
     val isLowStock = product.stockQuantity <= 5
 
-    Card(
+    GlassCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(14.dp),
+        backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        elevation = 2.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Column { // Changed from Row to Column to avoid horizontal overflowing
-                    Text(
-                        text = product.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = product.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                if (product.isActive) Color(0xFFDCFCE7) else Color(0xFFF1F5F9),
+                                shape = RoundedCornerShape(4.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = if (product.isActive) "Active" else "Inactive",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (product.isActive) SuccessGreen else SecondaryText,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    if (isLowStock) {
+                        Spacer(modifier = Modifier.width(6.dp))
                         Box(
                             modifier = Modifier
-                                .background(
-                                    if (product.isActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                                    shape = RoundedCornerShape(4.dp)
-                                )
+                                .background(Color(0xFFFEE2E2), shape = RoundedCornerShape(4.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
-                            Text(
-                                text = if (product.isActive) "Active" else "Inactive",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (product.isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        if (isLowStock) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .background(MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(4.dp))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.Warning,
-                                        contentDescription = "Low Stock",
-                                        tint = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier.height(12.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(2.dp))
-                                    Text(
-                                        "Low Stock",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Warning,
+                                    contentDescription = "Low Stock",
+                                    tint = DangerRed,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Text(
+                                    "Low Stock",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = DangerRed,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Category: ${product.category} | SKU: ${if (product.sku.isNotBlank()) product.sku else "N/A"}",
+                    text = "Category: ${product.category} • SKU: ${if (product.sku.isNotBlank()) product.sku else "N/A"}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Column(
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = String.format(Locale.US, "Price: ₱%.2f", product.price),
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary
+                        text = String.format(Locale.US, "₱%.2f", product.price),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Stock: ${product.stockQuantity}",
+                        text = "Stock: ${formatStockDisplay(product.stockQuantity)}",
                         fontWeight = FontWeight.SemiBold,
-                        color = if (isLowStock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (isLowStock) DangerRed else MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -245,13 +285,14 @@ fun InventoryProductCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Switch(
                     checked = product.isActive,
-                    onCheckedChange = onToggleActive
+                    onCheckedChange = onToggleActive,
+                    colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = MaterialTheme.colorScheme.primary)
                 )
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit")
+                    Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.primary)
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", tint = SecondaryText)
                 }
             }
         }
@@ -274,7 +315,7 @@ fun ProductFormDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
         text = {
             Column {
                 OutlinedTextField(
@@ -282,7 +323,14 @@ fun ProductFormDialog(
                     onValueChange = { name = it },
                     label = { Text("Product Name") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                    )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
@@ -291,7 +339,14 @@ fun ProductFormDialog(
                     label = { Text("Price (₱)") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                    )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
@@ -299,7 +354,14 @@ fun ProductFormDialog(
                     onValueChange = { category = it },
                     label = { Text("Category") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                    )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
@@ -308,7 +370,14 @@ fun ProductFormDialog(
                     label = { Text("Stock Quantity") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                    )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
@@ -316,18 +385,26 @@ fun ProductFormDialog(
                     onValueChange = { sku = it },
                     label = { Text("SKU / Barcode (Optional)") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                    )
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Product Active Status", fontWeight = FontWeight.Medium)
+                    Text("Product Active Status", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                     Switch(
                         checked = isActive,
-                        onCheckedChange = { isActive = it }
+                        onCheckedChange = { isActive = it },
+                        colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = MaterialTheme.colorScheme.primary)
                     )
                 }
             }
@@ -340,13 +417,15 @@ fun ProductFormDialog(
                     if (name.isNotBlank() && price > 0) {
                         onSave(name.trim(), price, category.trim(), stock, sku.trim(), isActive)
                     }
-                }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Save")
+                Text("Save Product", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            OutlinedButton(onClick = onDismiss) {
+            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
                 Text("Cancel")
             }
         }

@@ -25,4 +25,13 @@ interface ExpenseDao {
 
     @Query("SELECT COALESCE(SUM(amount), 0.0) FROM expenses WHERE paymentMethod = 'GCash'")
     fun getGCashExpensesTotal(): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(amount), 0.0) FROM expenses WHERE timestamp BETWEEN :startOfDay AND :endOfDay")
+    fun getTotalExpensesByDate(startOfDay: Long, endOfDay: Long): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(amount), 0.0) FROM expenses WHERE paymentMethod = 'Cash' AND timestamp BETWEEN :startOfDay AND :endOfDay")
+    fun getCashExpensesTotalByDate(startOfDay: Long, endOfDay: Long): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(amount), 0.0) FROM expenses WHERE paymentMethod = 'GCash' AND timestamp BETWEEN :startOfDay AND :endOfDay")
+    fun getGCashExpensesTotalByDate(startOfDay: Long, endOfDay: Long): Flow<Double>
 }

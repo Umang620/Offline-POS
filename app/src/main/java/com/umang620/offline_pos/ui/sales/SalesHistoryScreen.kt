@@ -1,8 +1,8 @@
 package com.umang620.offline_pos.ui.sales
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,14 +28,14 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -43,11 +44,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.umang620.offline_pos.data.local.OrderWithItems
+import com.umang620.offline_pos.ui.theme.DangerRed
+import com.umang620.offline_pos.ui.theme.GlassCard
+import com.umang620.offline_pos.ui.theme.SecondaryText
+import com.umang620.offline_pos.ui.theme.SuccessGreen
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -64,13 +72,15 @@ fun SalesHistoryScreen(viewModel: SalesViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
         Text(
-            text = "Sales Log & Analytics",
-            style = MaterialTheme.typography.headlineMedium,
+            text = "Sales Log & Transactions",
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp)
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(bottom = 12.dp)
         )
 
         // KPI Metric Cards
@@ -79,25 +89,26 @@ fun SalesHistoryScreen(viewModel: SalesViewModel) {
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             KpiCard(
-                title = "Total Paid Revenue",
+                title = "Total Revenue",
                 value = String.format(Locale.US, "₱%.2f", totalRevenue),
                 icon = Icons.AutoMirrored.Filled.TrendingUp,
                 modifier = Modifier.weight(1f)
             )
             KpiCard(
-                title = "Paid Transactions",
+                title = "Paid Orders",
                 value = "$totalOrders",
                 icon = Icons.Default.ShoppingBag,
                 modifier = Modifier.weight(1f)
             )
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
             text = "Transaction History",
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
@@ -109,8 +120,9 @@ fun SalesHistoryScreen(viewModel: SalesViewModel) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No transactions recorded yet.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "No sales records available.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyLarge
                 )
             }
         } else {
@@ -132,18 +144,22 @@ fun SalesHistoryScreen(viewModel: SalesViewModel) {
     orderToVoid?.let { orderWithItems ->
         AlertDialog(
             onDismissRequest = { orderToVoid = null },
-            title = { Text("Void Order #${orderWithItems.order.id}") },
+            title = { Text("Void Order #${orderWithItems.order.id}", fontWeight = FontWeight.Bold) },
             text = { Text("Are you sure you want to VOID this transaction? It will remain in history as VOIDED but excluded from sales totals.") },
             confirmButton = {
-                Button(onClick = {
-                    viewModel.voidOrder(orderWithItems.order.id)
-                    orderToVoid = null
-                }) {
-                    Text("Confirm Void")
+                Button(
+                    onClick = {
+                        viewModel.voidOrder(orderWithItems.order.id)
+                        orderToVoid = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Confirm Void", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { orderToVoid = null }) {
+                TextButton(onClick = { orderToVoid = null }) {
                     Text("Cancel")
                 }
             }
@@ -153,18 +169,22 @@ fun SalesHistoryScreen(viewModel: SalesViewModel) {
     orderToDelete?.let { orderWithItems ->
         AlertDialog(
             onDismissRequest = { orderToDelete = null },
-            title = { Text("Permanently Delete Order #${orderWithItems.order.id}") },
-            text = { Text("Are you sure you want to PERMANENTLY DELETE this record? This action cannot be undone.") },
+            title = { Text("Permanently Delete Order #${orderWithItems.order.id}", fontWeight = FontWeight.Bold) },
+            text = { Text("Are you sure you want to PERMANENTLY DELETE this transaction record? This action cannot be undone.") },
             confirmButton = {
-                Button(onClick = {
-                    viewModel.deleteOrder(orderWithItems.order.id)
-                    orderToDelete = null
-                }) {
-                    Text("Delete Permanently", color = MaterialTheme.colorScheme.onError)
+                Button(
+                    onClick = {
+                        viewModel.deleteOrder(orderWithItems.order.id)
+                        orderToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Permanently Delete", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = { orderToDelete = null }) {
+                TextButton(onClick = { orderToDelete = null }) {
                     Text("Cancel")
                 }
             }
@@ -179,13 +199,14 @@ fun KpiCard(
     icon: ImageVector,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    GlassCard(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        shape = RoundedCornerShape(16.dp),
+        backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        elevation = 2.dp
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(14.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -194,21 +215,22 @@ fun KpiCard(
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = value,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
     }
@@ -222,31 +244,33 @@ fun OrderCard(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val order = orderWithItems.order
-    val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy - hh:mm a", Locale.getDefault()) }
+    val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.getDefault()) }
     val formattedDate = remember(order.timestamp) { dateFormat.format(Date(order.timestamp)) }
     val isVoided = order.status == "VOIDED"
     val isUnpaid = order.status == "UNPAID"
     val orderTitle = if (order.orderNumber.isNotBlank()) order.orderNumber else "Order #${order.id}"
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { expanded = !expanded },
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = when {
-                isVoided -> MaterialTheme.colorScheme.surfaceVariant
-                isUnpaid -> MaterialTheme.colorScheme.tertiaryContainer
-                else -> MaterialTheme.colorScheme.surface
-            }
-        )
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = { expanded = !expanded },
+        shape = RoundedCornerShape(16.dp),
+        backgroundColor = when {
+            isVoided -> Color(0xFFF1F5F9).copy(alpha = 0.85f)
+            isUnpaid -> Color(0xFFFEF3C7).copy(alpha = 0.85f)
+            else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+        },
+        borderColor = when {
+            isVoided -> Color(0xFFCBD5E1)
+            isUnpaid -> Color(0xFFFDE68A)
+            else -> Color.White.copy(alpha = 0.85f)
+        },
+        elevation = 2.dp
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -255,9 +279,10 @@ fun OrderCard(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = if (isVoided) SecondaryText else MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
@@ -266,28 +291,35 @@ fun OrderCard(
                                 style = MaterialTheme.typography.titleMedium,
                                 modifier = Modifier.weight(1f, fill = false),
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
+                                textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Box(
                                 modifier = Modifier
                                     .background(
                                         when {
-                                            isVoided -> MaterialTheme.colorScheme.error
-                                            isUnpaid -> MaterialTheme.colorScheme.tertiary
-                                            else -> MaterialTheme.colorScheme.primary
+                                            isVoided -> Color(0xFFE2E8F0)
+                                            isUnpaid -> Color(0xFFFEF3C7)
+                                            else -> Color(0xFFDCFCE7)
                                         },
-                                        shape = RoundedCornerShape(4.dp)
+                                        shape = RoundedCornerShape(6.dp)
                                     )
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
                                     text = order.status,
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onPrimary
+                                    color = when {
+                                        isVoided -> SecondaryText
+                                        isUnpaid -> Color(0xFFB45309)
+                                        else -> SuccessGreen
+                                    },
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = formattedDate,
                             style = MaterialTheme.typography.bodySmall,
@@ -300,11 +332,12 @@ fun OrderCard(
                     Text(
                         text = String.format(Locale.US, "₱%.2f", order.totalAmount),
                         fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (isVoided) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
+                        style = MaterialTheme.typography.titleLarge,
+                        color = if (isVoided) SecondaryText else MaterialTheme.colorScheme.onSurface,
+                        textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None
                     )
                     Text(
-                        text = "${order.paymentMethod} • ${order.totalItems} items",
+                        text = "${order.paymentMethod} • ${order.totalItems} item${if (order.totalItems > 1) "s" else ""}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -327,7 +360,7 @@ fun OrderCard(
 
             AnimatedVisibility(visible = expanded) {
                 Column(modifier = Modifier.padding(top = 12.dp)) {
-                    HorizontalDivider()
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
                     Spacer(modifier = Modifier.height(8.dp))
 
                     if (order.cashReceived != null && order.changeAmount != null) {
@@ -349,7 +382,8 @@ fun OrderCard(
                     Text(
                         text = "Receipt Items:",
                         fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     orderWithItems.items.forEach { item ->
@@ -375,15 +409,24 @@ fun OrderCard(
                     Spacer(modifier = Modifier.height(12.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (!isVoided) {
-                            IconButton(onClick = onVoid) {
-                                Icon(Icons.Default.Block, contentDescription = "Void Order", tint = MaterialTheme.colorScheme.error)
+                            OutlinedButton(
+                                onClick = onVoid,
+                                shape = RoundedCornerShape(8.dp),
+                                border = BorderStroke(1.dp, DangerRed),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Icon(Icons.Default.Block, contentDescription = null, tint = DangerRed, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Void", color = DangerRed, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                             }
+                            Spacer(modifier = Modifier.width(8.dp))
                         }
                         IconButton(onClick = onDelete) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete Record", tint = MaterialTheme.colorScheme.error)
+                            Icon(Icons.Default.Delete, contentDescription = "Delete Record", tint = SecondaryText)
                         }
                     }
                 }
@@ -391,5 +434,3 @@ fun OrderCard(
         }
     }
 }
-
-

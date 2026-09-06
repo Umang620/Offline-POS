@@ -1,6 +1,7 @@
 package com.umang620.offline_pos.ui.register
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,28 +22,33 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.window.Dialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,6 +64,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -66,6 +73,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.umang620.offline_pos.data.local.ProductEntity
 import com.umang620.offline_pos.domain.model.CartItem
+import com.umang620.offline_pos.ui.theme.GlassCard
+import com.umang620.offline_pos.ui.theme.GlassSurface
+import com.umang620.offline_pos.ui.theme.SuccessGreen
+import com.umang620.offline_pos.ui.theme.WarningOrange
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -103,30 +114,17 @@ fun RegisterScreen(viewModel: PosViewModel) {
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = if (cartItems.isNotEmpty()) 72.dp else 0.dp)
+                .padding(bottom = if (cartItems.isNotEmpty()) 84.dp else 0.dp)
         ) {
-            // Search Bar
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { viewModel.updateSearchQuery(it) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Search products...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.updateSearchQuery("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear search")
-                        }
-                    }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp)
+            // Header / Search Bar
+            SurfaceHeader(
+                searchQuery = searchQuery,
+                onSearchChange = { viewModel.updateSearchQuery(it) },
+                onClearSearch = { viewModel.updateSearchQuery("") }
             )
 
             // Category Chips
@@ -134,20 +132,30 @@ fun RegisterScreen(viewModel: PosViewModel) {
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(vertical = 8.dp)
                 ) {
                     item {
                         FilterChip(
                             selected = selectedCategory == null,
                             onClick = { viewModel.selectCategory(null) },
-                            label = { Text("All") }
+                            label = { Text("All Products", fontWeight = FontWeight.Medium) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(20.dp)
                         )
                     }
                     items(categories) { category ->
                         FilterChip(
                             selected = selectedCategory == category,
                             onClick = { viewModel.selectCategory(category) },
-                            label = { Text(category) }
+                            label = { Text(category, fontWeight = FontWeight.Medium) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(20.dp)
                         )
                     }
                 }
@@ -162,14 +170,14 @@ fun RegisterScreen(viewModel: PosViewModel) {
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (searchQuery.isNotEmpty()) "No matching products found" else "No products in inventory",
+                        text = if (searchQuery.isNotEmpty()) "No matching products found" else "No products available in inventory",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             } else {
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 130.dp), // Reduced from 160.dp for better fit on small phones
+                    columns = GridCells.Adaptive(minSize = 145.dp),
                     contentPadding = PaddingValues(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -185,67 +193,74 @@ fun RegisterScreen(viewModel: PosViewModel) {
             }
         }
 
-        // Bottom Cart Summary Bar
+        // Bottom Cart Summary Floating Bar
         if (cartItems.isNotEmpty()) {
-            Card(
+            GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
                     .padding(12.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                shape = RoundedCornerShape(20.dp),
+                backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                elevation = 6.dp
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(10.dp))
                             .clickable { showCartSheet = true }
                             .padding(4.dp)
                     ) {
-                        Box {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.ShoppingCart,
                                 contentDescription = "View Cart",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(28.dp)
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
                                 text = "$totalItemCount item${if (totalItemCount > 1) "s" else ""}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 text = String.format(Locale.US, "₱%.2f", totalAmount),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
 
                     Button(
                         onClick = { showCheckoutDialog = true },
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
-                        Text("Checkout")
+                        Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Pay Now", fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
     }
 
-    // Cart Bottom Sheet
     if (showCartSheet) {
         CartBottomSheet(
             cartItems = cartItems,
@@ -263,7 +278,6 @@ fun RegisterScreen(viewModel: PosViewModel) {
         )
     }
 
-    // Checkout Modal Dialog
     if (showCheckoutDialog) {
         CheckoutDialog(
             totalAmount = totalAmount,
@@ -282,59 +296,118 @@ fun RegisterScreen(viewModel: PosViewModel) {
 }
 
 @Composable
+fun SurfaceHeader(
+    searchQuery: String,
+    onSearchChange: (String) -> Unit,
+    onClearSearch: () -> Unit
+) {
+    GlassSurface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        shape = RoundedCornerShape(18.dp),
+        elevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp)
+        ) {
+            Text(
+                text = "Point of Sale",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = onSearchChange,
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Search product name...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = onClearSearch) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                )
+            )
+        }
+    }
+}
+
+fun formatStockDisplay(quantity: Int): String {
+    return when {
+        quantity >= 1_000_000 -> String.format(Locale.US, "%.1fM", quantity / 1_000_000.0)
+        quantity >= 100_000 -> "${quantity / 1000}k"
+        else -> quantity.toString()
+    }
+}
+
+@Composable
 fun ProductCard(
     product: ProductEntity,
     onAddToCart: () -> Unit
 ) {
-    Card(
+    GlassCard(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
+        onClick = if (product.stockQuantity > 0) onAddToCart else null,
+        shape = RoundedCornerShape(16.dp),
+        backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        elevation = 2.dp
     ) {
         Column(
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
         ) {
             Text(
                 text = product.name,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = product.category,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.secondary
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Column(
-                modifier = Modifier.fillMaxWidth()
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = String.format(Locale.US, "₱%.2f", product.price),
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = if (product.stockQuantity > 0) "Stock: ${product.stockQuantity}" else "Out of Stock",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = if (product.stockQuantity > 0) "Stock ${formatStockDisplay(product.stockQuantity)}" else "Out of stock",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
                     color = if (product.stockQuantity > 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(
-                onClick = onAddToCart,
-                enabled = product.stockQuantity > 0,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(vertical = 4.dp)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Add")
             }
         }
     }
@@ -353,7 +426,8 @@ fun CartBottomSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
     ) {
         Column(
             modifier = Modifier
@@ -366,12 +440,12 @@ fun CartBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Current Cart",
-                    style = MaterialTheme.typography.headlineSmall,
+                    text = "Current Order",
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
                 TextButton(onClick = onClearCart) {
-                    Text("Clear All", color = MaterialTheme.colorScheme.error)
+                    Text("Clear Cart", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
                 }
             }
 
@@ -394,17 +468,27 @@ fun CartBottomSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             val totalAmount = cartItems.sumOf { it.subtotal }
-            Row(
+            GlassSurface(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                shape = RoundedCornerShape(14.dp),
+                backgroundColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
+                elevation = 1.dp
             ) {
-                Text("Total:", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text(
-                    text = String.format(Locale.US, "₱%.2f", totalAmount),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Total Amount:", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = String.format(Locale.US, "₱%.2f", totalAmount),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -414,7 +498,7 @@ fun CartBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Proceed to Payment", fontSize = 16.sp)
+                Text("Proceed to Checkout", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -427,33 +511,39 @@ fun CartItemRow(
     onDecrease: () -> Unit,
     onRemove: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(8.dp))
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        backgroundColor = MaterialTheme.colorScheme.background.copy(alpha = 0.85f),
+        elevation = 1.dp
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(cartItem.product.name, fontWeight = FontWeight.Bold)
-            Text(
-                String.format(Locale.US, "₱%.2f x %d = ₱%.2f", cartItem.product.price, cartItem.quantity, cartItem.subtotal),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(cartItem.product.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    String.format(Locale.US, "₱%.2f × %d = ₱%.2f", cartItem.product.price, cartItem.quantity, cartItem.subtotal),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onDecrease, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Remove, contentDescription = "Decrease")
-            }
-            Text("${cartItem.quantity}", fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp))
-            IconButton(onClick = onIncrease, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Add, contentDescription = "Increase")
-            }
-            IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onDecrease, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Remove, contentDescription = "Decrease")
+                }
+                Text("${cartItem.quantity}", fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp))
+                IconButton(onClick = onIncrease, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Add, contentDescription = "Increase")
+                }
+                IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
@@ -473,36 +563,95 @@ fun CheckoutDialog(
     val changeAmount = cashReceived - totalAmount
     val isCashValid = selectedMethod != "Cash" || cashReceived >= totalAmount
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Checkout Order") },
-        text = {
-            Column {
+    Dialog(onDismissRequest = onDismiss) {
+        GlassSurface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            shape = RoundedCornerShape(24.dp),
+            backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+            borderColor = Color.White.copy(alpha = 0.90f),
+            elevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
                 Text(
-                    text = String.format(Locale.US, "Total Amount: ₱%.2f", totalAmount),
-                    style = MaterialTheme.typography.titleMedium,
+                    text = "Complete Payment",
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("Select Payment Method:", fontWeight = FontWeight.Medium)
-                Spacer(modifier = Modifier.height(4.dp))
-                
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(
-                        selected = (selectedMethod == "Cash"),
-                        onClick = { selectedMethod = "Cash" }
-                    )
-                    Text("Cash", modifier = Modifier.clickable { selectedMethod = "Cash" })
-                    Spacer(modifier = Modifier.width(16.dp))
-                    RadioButton(
-                        selected = (selectedMethod == "GCash"),
-                        onClick = { selectedMethod = "GCash" }
-                    )
-                    Text("GCash", modifier = Modifier.clickable { selectedMethod = "GCash" })
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Total Due Section
+                GlassSurface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    backgroundColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+                    borderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                    elevation = 2.dp
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Total Due",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = String.format(Locale.US, "₱%.2f", totalAmount),
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Payment Method Section
+                Text(
+                    text = "Payment Method",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedMethod == "Cash",
+                        onClick = { selectedMethod = "Cash" },
+                        label = { Text("Cash", fontWeight = FontWeight.Bold) },
+                        modifier = Modifier.weight(1f),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                    FilterChip(
+                        selected = selectedMethod == "GCash",
+                        onClick = { selectedMethod = "GCash" },
+                        label = { Text("GCash", fontWeight = FontWeight.Bold) },
+                        modifier = Modifier.weight(1f),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = Color.White
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
 
                 if (selectedMethod == "Cash") {
                     OutlinedTextField(
@@ -511,37 +660,107 @@ fun CheckoutDialog(
                         label = { Text("Cash Received (₱)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                        )
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Quick Cash Chips
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(totalAmount, 100.0, 200.0, 500.0, 1000.0).forEach { amount ->
+                            if (amount >= totalAmount) {
+                                OutlinedButton(
+                                    onClick = { cashReceivedStr = String.format(Locale.US, "%.0f", amount) },
+                                    modifier = Modifier.weight(1f),
+                                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = if (amount == totalAmount) "Exact" else "₱${amount.toInt()}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     if (cashReceivedStr.isNotBlank()) {
                         if (changeAmount >= 0) {
-                            Text(
-                                text = String.format(Locale.US, "Change: ₱%.2f", changeAmount),
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold
-                            )
+                            GlassSurface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                backgroundColor = Color(0xFFDCFCE7).copy(alpha = 0.9f),
+                                borderColor = SuccessGreen.copy(alpha = 0.5f),
+                                elevation = 1.dp
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Check, contentDescription = null, tint = SuccessGreen)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text("Change Due", style = MaterialTheme.typography.labelSmall, color = SuccessGreen)
+                                        Text(
+                                            text = String.format(Locale.US, "₱%.2f", changeAmount),
+                                            color = SuccessGreen,
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.titleMedium
+                                        )
+                                    }
+                                }
+                            }
                         } else {
-                            Text(
-                                text = String.format(Locale.US, "Insufficient Cash (Short by ₱%.2f)", -changeAmount),
-                                color = MaterialTheme.colorScheme.error,
-                                fontWeight = FontWeight.Bold
-                            )
+                            GlassSurface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                backgroundColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
+                                borderColor = MaterialTheme.colorScheme.error.copy(alpha = 0.5f),
+                                elevation = 1.dp
+                            ) {
+                                Text(
+                                    text = String.format(Locale.US, "Short by ₱%.2f", -changeAmount),
+                                    color = MaterialTheme.colorScheme.error,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(12.dp),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                         }
                     }
                 } else {
                     OutlinedTextField(
                         value = gcashRefStr,
                         onValueChange = { gcashRefStr = it },
-                        label = { Text("GCash Ref No. (Optional)") },
+                        label = { Text("GCash Reference No. (Optional)") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                        )
                     )
                 }
-            }
-        },
-        confirmButton = {
-            Column {
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Action Buttons cleanly stacked vertically in dedicated space
                 Button(
                     onClick = {
                         onConfirmPayment(
@@ -553,25 +772,41 @@ fun CheckoutDialog(
                         )
                     },
                     enabled = isCashValid,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("Complete Payment")
+                    Text("Complete Transaction", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 }
-                Spacer(modifier = Modifier.height(4.dp))
+
+                Spacer(modifier = Modifier.height(10.dp))
+
                 OutlinedButton(
                     onClick = {
                         onConfirmPayment("Unpaid", true, null, null, null)
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.5.dp, WarningOrange)
                 ) {
-                    Text("Save as UNPAID", color = MaterialTheme.colorScheme.tertiary)
+                    Text("Save as UNPAID", color = WarningOrange, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp)
+                ) {
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
                 }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
         }
-    )
+    }
 }
