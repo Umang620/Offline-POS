@@ -60,6 +60,9 @@ interface OrderDao {
     @Query("SELECT COUNT(*) FROM orders WHERE status = 'PAID'")
     fun getTotalOrderCount(): Flow<Int>
 
+    @Query("SELECT COALESCE(SUM(totalItems), 0) FROM orders WHERE status = 'PAID'")
+    fun getAllTimeProductsSold(): Flow<Int>
+
     @Query("SELECT COALESCE(SUM(totalAmount), 0.0) FROM orders WHERE status = 'PAID' AND timestamp BETWEEN :startOfDay AND :endOfDay")
     fun getTotalRevenueByDate(startOfDay: Long, endOfDay: Long): Flow<Double>
 
@@ -71,4 +74,10 @@ interface OrderDao {
 
     @Query("SELECT COALESCE(SUM(totalAmount), 0.0) FROM orders WHERE status = 'UNPAID' AND timestamp BETWEEN :startOfDay AND :endOfDay")
     fun getUnpaidSalesTotalByDate(startOfDay: Long, endOfDay: Long): Flow<Double>
+
+    @Query("SELECT COALESCE(SUM(totalItems), 0) FROM orders WHERE status = 'PAID' AND timestamp BETWEEN :startOfDay AND :endOfDay")
+    fun getProductsSoldByDate(startOfDay: Long, endOfDay: Long): Flow<Int>
+
+    @Query("SELECT oi.productId AS productId, oi.productName AS productName, SUM(oi.quantity) AS totalQuantity, SUM(oi.subtotal) AS totalAmount FROM order_items oi INNER JOIN orders o ON oi.orderId = o.id WHERE o.status = 'PAID' AND o.timestamp BETWEEN :startOfDay AND :endOfDay GROUP BY oi.productId, oi.productName ORDER BY totalQuantity DESC")
+    fun getProductSalesSummaryByDate(startOfDay: Long, endOfDay: Long): Flow<List<ProductSalesSummary>>
 }

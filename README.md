@@ -1,48 +1,59 @@
-• Offline Point of Sale (POS)
+# 📱 Offline POS (Point of Sale)
 
-A 100% offline, native Android Point of Sale (POS) application built for cafes, coffee shops, and retail stores. Developed using modern Android technologies including **Kotlin**, **Jetpack Compose**, **Material 3**, **Room SQLite Database**, and **MVVM Architecture**.
+A **100% offline**, native Android Point of Sale (POS) and inventory management application built for cafes, coffee shops, food stands, and retail businesses. Developed using modern Android technologies: **Kotlin**, **Jetpack Compose**, **Material 3**, **Room SQLite Database**, and **MVVM Architecture**.
 
 ---
 
-## 📱 Features
+## ✨ Features & Highlights
 
-### 1. 🛒 Register & Point of Sale (POS)
-* **Adaptive Catalog Grid**: Automatically adapts to phones (2 columns) and tablets (3–6 columns) using Compose `GridCells.Adaptive`.
-* **Live Search & Category Filtering**: Quickly search products by name or SKU, or filter by product categories.
-* **Interactive Cart**: Slide-up bottom sheet with quick quantity adjusters (`+` / `-`), itemized subtotals, and total amount calculation.
-* **Cash Payment & Change Calculator**: Input cash received with live **Change calculation** (`Change = Cash Received - Total Amount`) and insufficient cash validation.
-* **GCash Payment Logging**: Log GCash transactions with optional GCash reference number recording.
-* **Save as Unpaid**: Easily log orders as `UNPAID` for later payment settlement.
+### 🚀 1. Animated Splash Screen
+* **Brand Entrance**: Smooth opening splash screen featuring the official **UMNX logo**.
+* **Compose Animations**: Built entirely in Jetpack Compose with hardware-accelerated fade-in and subtle scale-up animations before transitioning into the main dashboard.
 
-### 2. 📋 Unpaid Orders System
-* **Unpaid Balance Summary**: Overview of total unpaid customer balance.
-* **Expandable Order Preview**: Click any unpaid order to expand and preview itemized receipt breakdowns (`quantity x product = ₱ subtotal`).
-* **Settlement Modal**: Settle unpaid orders via Cash (with change calculation) or GCash (with reference number logging).
+### 🛒 2. Register & Point of Sale
+* **Adaptive Catalog Grid**: Adapts to phone screens (2–3 columns) and tablet/foldable screens (3–6 columns) using Compose `GridCells.Adaptive`.
+* **Live Product Search & Category Chips**: Instant search by product name or SKU, and category filter chips.
+* **Interactive Cart**: Slide-up bottom sheet with instant `+` / `-` quantity controls, subtotals, and total amount calculation.
+* **Payment Methods**:
+  * **Cash Payment**: Live change calculator (`Change = Cash Received - Total Amount`) with quick-cash amount chips.
+  * **GCash Payment**: Record GCash sales with optional reference number logging.
+  * **Save as UNPAID**: Save order as `UNPAID` for credit/charge sales to be settled later.
 
-### 3. 📊 Sales Log & Transaction History
-* **Transaction History**: View all completed sales with order numbers, dates, times, total amounts, and payment methods.
-* **Status Tracking**: Clear status badges (`PAID`, `VOIDED`).
-* **Void Order**: Void legitimate transactions with confirmation dialogs (retains the transaction record marked as `VOIDED` and excludes it from sales totals).
-* **Permanent Delete**: Completely remove accidental, test, or duplicate orders and related order items from the database.
+### 📋 3. Unpaid Orders System
+* **Outstanding Balance Summary**: Live calculation of total pending unpaid balance.
+* **Itemized Receipt Preview**: Expand any unpaid order card to view full item breakdown (`quantity × product price = subtotal`).
+* **Settlement Modal**: Easily settle unpaid orders via Cash (with change calculator) or GCash (with reference number).
 
-### 4. 💸 Expense Tracker
-* **Category Tracking**: Record business expenses under preset categories:
-  * *Beans*, *Ice*, *Transportation*, *Electricity*, *Cleaning supplies*, *Ingredients*, *Other*.
-* **Method Breakdown**: Separate expenses paid via **Cash** vs **GCash**.
+### 📊 4. Sales History & Void Management
+* **Transaction Log**: Search and view past transactions with order numbers, timestamps, total amounts, and payment methods.
+* **Status Badges**: High-contrast `PAID`, `UNPAID`, and `VOIDED` badges formatted for both Light and Dark themes.
+* **Void Order**: Void transactions with confirmation dialogs (retains records marked as `VOIDED` and excludes them from sales totals).
+* **Permanent Delete**: Completely remove duplicate or test orders from the database.
 
-### 5. 📈 Daily Summary & Analytics Dashboard
-* **Real-time Financial Calculations**:
-  * **Cash Sales** & **GCash Sales**
-  * **Cash Expenses** & **GCash Expenses**
-  * **Total Sales** & **Total Expenses**
-  * **Cash on Hand** = `Cash Sales - Cash Expenses`
-  * **GCash Recorded** = `GCash Sales - GCash Expenses`
-  * **Unpaid Total Balance**
+### 💸 5. Business Expense Tracker
+* **Expense Categories**: Log expenses under presets (*Supplies*, *Ingredients*, *Transportation*, *Electricity*, *Cleaning*, *Equipment*, *Other*).
+* **Payment Method Tracking**: Track expenses paid via **Cash** or **GCash**.
+* **Date Filtering**: Filter expenses by date with a built-in calendar picker.
 
-### 6. 📦 Inventory Management
-* **Stock Control**: Live product stock tracking with visual **Low Stock Warnings** (<= 5 items).
-* **Active / Inactive Status Toggle**: Toggle products active or inactive. Inactive products are automatically hidden from the Register screen while preserving sales history.
-* **Add & Edit Forms**: Form dialogs for updating product names, prices in Pesos (`₱`), categories, stock quantities, and SKUs.
+### 📈 6. Daily Summary & Financial Analytics
+* **Period Filter Selector**: Quickly toggle report periods: **Today**, **Yesterday**, **This Week**, **This Month**, **All-Time**, or **Custom Date Range**.
+* **Financial Calculations**:
+  * **Total Sales** (Cash Sales vs GCash Sales)
+  * **Total Expenses** (Cash Expenses vs GCash Expenses)
+  * **Cash Net / Cash on Hand** = `Cash Sales - Cash Expenses`
+  * **GCash Net** = `GCash Sales - GCash Expenses`
+  * **Unpaid Total**
+* **Top Products Sold**: View ranked top products sold by total quantity (`#1 Top Product`, `#2`, `#3`, etc.).
+
+### 📦 7. Inventory & Raw Materials Management
+* **Products & Raw Materials**: Manage sellable products (shown in Register) and raw materials (inventory tracking only).
+* **Measurement Units**: Support for units (`pcs`, `kg`, `g`, `L`, `mL`, `box`).
+* **Low Stock Warnings**: Visual low stock indicators for items with `<= 5` quantity.
+* **Active Status Toggle**: Easily enable or disable items without losing sales records.
+
+### 🎨 8. Adaptive UI & Dark Mode Support
+* **Dark / Light Mode**: Built-in dark theme toggle with high-contrast, theme-aware colors across all cards, text labels, and badges.
+* **Edge-to-Edge & System Bar Protection**: Protected layout insets (`WindowInsets.systemBars`) ensuring zero UI overlapping with camera punch-holes, status bars, or gesture navigation bars on all Android phone and tablet screens.
 
 ---
 
@@ -51,9 +62,9 @@ A 100% offline, native Android Point of Sale (POS) application built for cafes, 
 * **Language**: [Kotlin](https://kotlinlang.org/)
 * **UI Framework**: [Jetpack Compose](https://developer.android.com/jetpack/compose) + [Material 3](https://m3.material.io/)
 * **Architecture**: MVVM (Model-View-ViewModel) + Repository Pattern
-* **Database**: [Room SQLite Database](https://developer.android.com/training/data-storage/room) (Version 2)
-* **Concurrency**: Kotlin Coroutines & StateFlow / SharedFlow
-* **Image/Icon System**: Material Extended AutoMirrored Icons
+* **Database**: [Room SQLite Database](https://developer.android.com/training/data-storage/room)
+* **Concurrency**: Kotlin Coroutines, `StateFlow`, and `SharedFlow`
+* **Icons**: Material AutoMirrored & Extended Icons
 
 ---
 
@@ -63,7 +74,7 @@ A 100% offline, native Android Point of Sale (POS) application built for cafes, 
 com.umang620.offline_pos/
 ├── data/
 │   ├── local/
-│   │   ├── ProductEntity.kt        # Room Product Entity
+│   │   ├── ProductEntity.kt        # Room Product Entity (Products & Raw Materials)
 │   │   ├── OrderEntity.kt          # Room Order Entity
 │   │   ├── OrderItemEntity.kt      # Room Order Item Entity
 │   │   ├── ExpenseEntity.kt        # Room Expense Entity
@@ -83,38 +94,37 @@ com.umang620.offline_pos/
 │   ├── sales/                      # Sales History & Void UI
 │   ├── expenses/                   # Expense Tracker UI
 │   ├── summary/                    # Daily Summary Dashboard UI
-│   ├── inventory/                  # Product Management UI
-│   └── theme/                      # Material 3 Color & Theme
-└── MainActivity.kt                 # Main Scaffold & Bottom Navigation
+│   ├── inventory/                  # Product & Raw Material Management UI
+│   └── theme/                      # Material 3 Color, Type & Theme
+└── MainActivity.kt                 # Animated Splash Screen & Main Navigation
 ```
 
 ---
 
 ## 🚀 Getting Started
 
-### Requirements
+### Prerequisites
 * **Android Studio**: Ladybug (2024.2.1) or newer
 * **JDK**: 17 or higher
-* **Min Android SDK**: API 26 (Android 8.0 Oreo)
-* **Target Android SDK**: API 35 / Compile SDK 37
+* **Minimum SDK**: API 26 (Android 8.0 Oreo)
+* **Target SDK**: API 35 (Android 15)
 
-### Installation
-1. Clone or download this repository to your local machine:
+### Building & Running
+1. Clone this repository:
    ```bash
    git clone https://github.com/your-username/Offline-POS.git
    ```
-2. Open **Android Studio** and select **Open**, navigating to the project folder.
-3. Allow Gradle to sync dependencies automatically.
-4. Connect an Android phone/tablet via USB (with USB Debugging enabled) or start an Android Emulator (API 26+).
-5. Click **Run (►)** or press `Shift + F10` to build and launch the application.
+2. Open **Android Studio** and select **Open**, choosing the `Offline-POS` folder.
+3. Allow Gradle to finish syncing project dependencies.
+4. Connect an Android device (with USB Debugging enabled) or start an Android Emulator.
+5. Click **Run (►)** or press `Shift + F10`.
 
 ---
 
-## 🔒 Data Privacy & Offline Security
+## 🔒 Offline & Data Security
 
-* **100% Offline**: Operates completely without internet, cloud backend, Firebase, or external servers.
-* **Data Security**: All store sales, product inventory, and expense records are stored locally in the device's internal SQLite database.
-* **Git Safety**: Contains a pre-configured `.gitignore` excluding sensitive keystores, build caches, and local machine properties.
+* **100% Offline**: Requires no internet connection, cloud server, or external API dependencies.
+* **Local Storage**: All product catalog items, transaction records, and expenses are persisted locally in the device's Room SQLite database.
 
 ---
 

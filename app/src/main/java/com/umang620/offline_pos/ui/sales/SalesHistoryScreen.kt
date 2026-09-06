@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -29,6 +30,9 @@ import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +40,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -60,14 +65,51 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SalesHistoryScreen(viewModel: SalesViewModel) {
     val orders by viewModel.ordersWithItems.collectAsState()
     val totalRevenue by viewModel.totalRevenue.collectAsState()
     val totalOrders by viewModel.totalOrderCount.collectAsState()
+    val selectedDate by viewModel.selectedDate.collectAsState()
 
+    var showDatePicker by remember { mutableStateOf(false) }
     var orderToVoid by remember { mutableStateOf<OrderWithItems?>(null) }
     var orderToDelete by remember { mutableStateOf<OrderWithItems?>(null) }
+
+    val isToday = remember(selectedDate) {
+        val todayStart = SalesViewModel.getStartOfDay(System.currentTimeMillis())
+        SalesViewModel.getStartOfDay(selectedDate) == todayStart
+    }
+
+    val dateLabel = remember(selectedDate, isToday) {
+        val format = SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault())
+        if (isToday) "Today (${format.format(Date(selectedDate))})" else format.format(Date(selectedDate))
+    }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { timestamp ->
+                        viewModel.updateSelectedDate(timestamp)
+                    }
+                    showDatePicker = false
+                }) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -75,13 +117,49 @@ fun SalesHistoryScreen(viewModel: SalesViewModel) {
             .background(MaterialTheme.colorScheme.background)
             .padding(16.dp)
     ) {
-        Text(
-            text = "Sales Log & Transactions",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Sales Log & Transactions",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = dateLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            OutlinedButton(
+                onClick = { showDatePicker = true },
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CalendarToday,
+                    contentDescription = "Select Date",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (isToday) "Today" else "Filter Date",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
+        }
 
         // KPI Metric Cards
         Row(
@@ -105,7 +183,7 @@ fun SalesHistoryScreen(viewModel: SalesViewModel) {
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Transaction History",
+            text = "Transaction History (${orders.size})",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
@@ -120,7 +198,7 @@ fun SalesHistoryScreen(viewModel: SalesViewModel) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No sales records available.",
+                    text = if (isToday) "No sales recorded yet today." else "No sales records for this date.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyLarge
                 )
@@ -285,7 +363,11 @@ fun OrderCard(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
                         contentDescription = null,
-                        tint = if (isVoided) SecondaryText else MaterialTheme.colorScheme.primary,
+                        tint = when {
+                            isVoided -> SecondaryText
+                            isUnpaid -> Color(0xFFB45309)
+                            else -> MaterialTheme.colorScheme.primary
+                        },
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
@@ -299,6 +381,7 @@ fun OrderCard(
                                 text = orderTitle,
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.titleMedium,
+                                color = if (isUnpaid) Color(0xFF451A03) else MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f, fill = false),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -310,7 +393,7 @@ fun OrderCard(
                                     .background(
                                         when {
                                             isVoided -> Color(0xFFE2E8F0)
-                                            isUnpaid -> Color(0xFFFEF3C7)
+                                            isUnpaid -> Color(0xFFFDE68A)
                                             else -> Color(0xFFDCFCE7)
                                         },
                                         shape = RoundedCornerShape(6.dp)
@@ -322,7 +405,7 @@ fun OrderCard(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = when {
                                         isVoided -> SecondaryText
-                                        isUnpaid -> Color(0xFFB45309)
+                                        isUnpaid -> Color(0xFF78350F)
                                         else -> SuccessGreen
                                     },
                                     fontWeight = FontWeight.Bold
@@ -333,7 +416,7 @@ fun OrderCard(
                         Text(
                             text = formattedDate,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (isUnpaid) Color(0xFF78350F) else MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -345,13 +428,17 @@ fun OrderCard(
                         text = String.format(Locale.US, "₱%.2f", order.totalAmount),
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleLarge,
-                        color = if (isVoided) SecondaryText else MaterialTheme.colorScheme.onSurface,
+                        color = when {
+                            isVoided -> SecondaryText
+                            isUnpaid -> Color(0xFF451A03)
+                            else -> MaterialTheme.colorScheme.onSurface
+                        },
                         textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None
                     )
                     Text(
                         text = "${order.paymentMethod} • ${order.totalItems} item${if (order.totalItems > 1) "s" else ""}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (isUnpaid) Color(0xFF78350F) else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -366,7 +453,7 @@ fun OrderCard(
                 Icon(
                     imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = if (expanded) "Show Less" else "Show Details",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (isUnpaid) Color(0xFF78350F) else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -379,14 +466,16 @@ fun OrderCard(
                         Text(
                             text = String.format(Locale.US, "Cash Received: ₱%.2f | Change: ₱%.2f", order.cashReceived, order.changeAmount),
                             style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            color = if (isUnpaid) Color(0xFF78350F) else MaterialTheme.colorScheme.onSurface
                         )
                     }
                     if (!order.gcashRefNumber.isNullOrBlank()) {
                         Text(
                             text = "GCash Ref No: ${order.gcashRefNumber}",
                             style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            color = if (isUnpaid) Color(0xFF78350F) else MaterialTheme.colorScheme.onSurface
                         )
                     }
 
@@ -395,7 +484,7 @@ fun OrderCard(
                         text = "Receipt Items:",
                         fontWeight = FontWeight.SemiBold,
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = if (isUnpaid) Color(0xFF451A03) else MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                     orderWithItems.items.forEach { item ->
@@ -408,12 +497,14 @@ fun OrderCard(
                             Text(
                                 text = "${item.quantity}x ${item.productName}",
                                 style = MaterialTheme.typography.bodySmall,
+                                color = if (isUnpaid) Color(0xFF451A03) else MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f)
                             )
                             Text(
                                 text = String.format(Locale.US, "₱%.2f", item.subtotal),
                                 style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.Medium,
+                                color = if (isUnpaid) Color(0xFF451A03) else MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }

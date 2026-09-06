@@ -5,24 +5,39 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.painterResource
+import kotlinx.coroutines.delay
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Assessment
@@ -113,17 +128,92 @@ class MainActivity : ComponentActivity() {
             }
 
             OfflinePOSTheme(darkTheme = isDarkMode) {
-                MainAppScreen(
-                    posViewModel = posViewModel,
-                    unpaidOrdersViewModel = unpaidOrdersViewModel,
-                    salesViewModel = salesViewModel,
-                    expensesViewModel = expensesViewModel,
-                    dailySummaryViewModel = dailySummaryViewModel,
-                    inventoryViewModel = inventoryViewModel,
-                    isDarkMode = isDarkMode,
-                    onToggleDarkMode = toggleDarkMode
-                )
+                var showSplashScreen by remember { mutableStateOf(true) }
+
+                Crossfade(
+                    targetState = showSplashScreen,
+                    animationSpec = tween(durationMillis = 400),
+                    label = "splashTransition"
+                ) { isSplash ->
+                    if (isSplash) {
+                        SplashScreen(
+                            onSplashFinished = { showSplashScreen = false }
+                        )
+                    } else {
+                        MainAppScreen(
+                            posViewModel = posViewModel,
+                            unpaidOrdersViewModel = unpaidOrdersViewModel,
+                            salesViewModel = salesViewModel,
+                            expensesViewModel = expensesViewModel,
+                            dailySummaryViewModel = dailySummaryViewModel,
+                            inventoryViewModel = inventoryViewModel,
+                            isDarkMode = isDarkMode,
+                            onToggleDarkMode = toggleDarkMode
+                        )
+                    }
+                }
             }
+        }
+    }
+}
+
+@Composable
+fun SplashScreen(onSplashFinished: () -> Unit) {
+    var startAnimation by remember { mutableStateOf(false) }
+
+    val alphaAnim by animateFloatAsState(
+        targetValue = if (startAnimation) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = 750,
+            easing = FastOutSlowInEasing
+        ),
+        label = "splashAlpha"
+    )
+
+    val scaleAnim by animateFloatAsState(
+        targetValue = if (startAnimation) 1f else 0.82f,
+        animationSpec = tween(
+            durationMillis = 750,
+            easing = FastOutSlowInEasing
+        ),
+        label = "splashScale"
+    )
+
+    LaunchedEffect(Unit) {
+        startAnimation = true
+        delay(1100)
+        onSplashFinished()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.graphicsLayer(
+                alpha = alphaAnim,
+                scaleX = scaleAnim,
+                scaleY = scaleAnim
+            )
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.umnx_logo),
+                contentDescription = "UMNX Logo",
+                modifier = Modifier
+                    .size(110.dp)
+                    .clip(CircleShape)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Offline POS",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }
@@ -149,6 +239,7 @@ fun MainAppScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxHeight()
+                        .windowInsetsPadding(WindowInsets.systemBars)
                         .verticalScroll(rememberScrollState())
                         .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)),
                     horizontalAlignment = Alignment.CenterHorizontally

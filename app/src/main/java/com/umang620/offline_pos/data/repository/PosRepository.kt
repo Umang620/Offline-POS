@@ -8,6 +8,7 @@ import com.umang620.offline_pos.data.local.OrderItemEntity
 import com.umang620.offline_pos.data.local.OrderWithItems
 import com.umang620.offline_pos.data.local.ProductDao
 import com.umang620.offline_pos.data.local.ProductEntity
+import com.umang620.offline_pos.data.local.ProductSalesSummary
 import com.umang620.offline_pos.domain.model.CartItem
 import kotlinx.coroutines.flow.Flow
 import java.text.SimpleDateFormat
@@ -34,6 +35,7 @@ class PosRepository(
     val gcashSalesTotal: Flow<Double> = orderDao.getGCashSalesTotal()
     val unpaidSalesTotal: Flow<Double> = orderDao.getUnpaidSalesTotal()
     val totalOrderCount: Flow<Int> = orderDao.getTotalOrderCount()
+    val allTimeProductsSold: Flow<Int> = orderDao.getAllTimeProductsSold()
 
     val allExpenses: Flow<List<ExpenseEntity>> = expenseDao.getAllExpenses()
     val cashExpensesTotal: Flow<Double> = expenseDao.getCashExpensesTotal()
@@ -44,6 +46,8 @@ class PosRepository(
     fun getCashSalesTotalByDate(startOfDay: Long, endOfDay: Long) = orderDao.getCashSalesTotalByDate(startOfDay, endOfDay)
     fun getGCashSalesTotalByDate(startOfDay: Long, endOfDay: Long) = orderDao.getGCashSalesTotalByDate(startOfDay, endOfDay)
     fun getUnpaidSalesTotalByDate(startOfDay: Long, endOfDay: Long) = orderDao.getUnpaidSalesTotalByDate(startOfDay, endOfDay)
+    fun getProductsSoldByDate(startOfDay: Long, endOfDay: Long) = orderDao.getProductsSoldByDate(startOfDay, endOfDay)
+    fun getProductSalesSummaryByDate(startOfDay: Long, endOfDay: Long) = orderDao.getProductSalesSummaryByDate(startOfDay, endOfDay)
 
     fun getTotalExpensesByDate(startOfDay: Long, endOfDay: Long) = expenseDao.getTotalExpensesByDate(startOfDay, endOfDay)
     fun getCashExpensesTotalByDate(startOfDay: Long, endOfDay: Long) = expenseDao.getCashExpensesTotalByDate(startOfDay, endOfDay)

@@ -2,14 +2,10 @@
 *.apk
 *.aab
 *.ap_
-
-# Files for the ART/DALVIK VM
 *.dex
-
-# Java class files
 *.class
 
-# Generated files & Caches
+# Generated files & Build outputs
 build/
 **/build/
 /build
@@ -48,3 +44,4 @@ google-services.json
 # OS & System files
 .DS_Store
 Thumbs.db
+desktop.ini

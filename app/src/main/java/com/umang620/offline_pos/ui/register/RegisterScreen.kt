@@ -4,6 +4,8 @@ import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,9 +15,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -322,7 +327,7 @@ fun SurfaceHeader(
                 value = searchQuery,
                 onValueChange = onSearchChange,
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search product name...") },
+                placeholder = { Text("Search product name or category...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search") },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
@@ -373,10 +378,11 @@ fun ProductCard(
                 text = product.name,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = product.category,
                 style = MaterialTheme.typography.bodySmall,
@@ -384,22 +390,17 @@ fun ProductCard(
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Column {
                 Text(
                     text = String.format(Locale.US, "₱%.2f", product.price),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = if (product.stockQuantity > 0) "Stock ${formatStockDisplay(product.stockQuantity)}" else "Out of stock",
                     style = MaterialTheme.typography.labelSmall,
@@ -563,10 +564,14 @@ fun CheckoutDialog(
     val changeAmount = cashReceived - totalAmount
     val isCashValid = selectedMethod != "Cash" || cashReceived >= totalAmount
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         GlassSurface(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 520.dp)
                 .padding(vertical = 16.dp),
             shape = RoundedCornerShape(24.dp),
             backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
@@ -674,20 +679,21 @@ fun CheckoutDialog(
 
                     // Quick Cash Chips
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         listOf(totalAmount, 100.0, 200.0, 500.0, 1000.0).forEach { amount ->
                             if (amount >= totalAmount) {
                                 OutlinedButton(
                                     onClick = { cashReceivedStr = String.format(Locale.US, "%.0f", amount) },
-                                    modifier = Modifier.weight(1f),
-                                    contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp),
-                                    shape = RoundedCornerShape(8.dp)
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    shape = RoundedCornerShape(10.dp)
                                 ) {
                                     Text(
-                                        text = if (amount == totalAmount) "Exact" else "₱${amount.toInt()}",
-                                        fontSize = 11.sp,
+                                        text = if (amount == totalAmount) "Exact (₱${String.format(Locale.US, "%.2f", totalAmount)})" else "₱${amount.toInt()}",
+                                        fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -774,7 +780,7 @@ fun CheckoutDialog(
                     enabled = isCashValid,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
+                        .heightIn(min = 48.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
@@ -789,7 +795,7 @@ fun CheckoutDialog(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
+                        .heightIn(min = 48.dp),
                     shape = RoundedCornerShape(12.dp),
                     border = BorderStroke(1.5.dp, WarningOrange)
                 ) {
@@ -802,7 +808,7 @@ fun CheckoutDialog(
                     onClick = onDismiss,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(40.dp)
+                        .heightIn(min = 40.dp)
                 ) {
                     Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Medium)
                 }

@@ -45,6 +45,7 @@ class PosViewModel(private val repository: PosRepository) : ViewModel() {
         products.filter { product ->
             val matchesQuery = query.isBlank() ||
                     product.name.contains(query, ignoreCase = true) ||
+                    product.category.contains(query, ignoreCase = true) ||
                     product.sku.contains(query, ignoreCase = true)
             val matchesCategory = category == null || product.category.equals(category, ignoreCase = true)
             matchesQuery && matchesCategory
