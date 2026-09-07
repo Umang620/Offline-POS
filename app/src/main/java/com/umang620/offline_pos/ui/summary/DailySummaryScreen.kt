@@ -1,5 +1,7 @@
 package com.umang620.offline_pos.ui.summary
 
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,16 +24,24 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,9 +49,12 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -57,6 +70,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.umang620.offline_pos.data.local.OrderWithItems
 import com.umang620.offline_pos.data.local.ProductSalesSummary
 import com.umang620.offline_pos.ui.theme.DangerRed
 import com.umang620.offline_pos.ui.theme.GlassCard
@@ -68,6 +82,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,6 +106,8 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
     val cashOnHand by viewModel.cashOnHand.collectAsState()
     val gcashRecorded by viewModel.gcashRecorded.collectAsState()
     val unpaidTotal by viewModel.unpaidTotal.collectAsState()
+    val voidedOrdersSummary by viewModel.voidedOrdersSummary.collectAsState()
+    val voidedOrdersInPeriod by viewModel.voidedOrdersInPeriod.collectAsState()
 
     val allTimeTotalSales by viewModel.allTimeTotalSales.collectAsState()
     val allTimeProductsSold by viewModel.allTimeProductsSold.collectAsState()
@@ -98,6 +115,8 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
     var showStartPicker by remember { mutableStateOf(false) }
     var showEndPicker by remember { mutableStateOf(false) }
     var showTopProductsDialog by remember { mutableStateOf(false) }
+    var showReconcileDialog by remember { mutableStateOf(false) }
+    var showVoidedDetailsDialog by remember { mutableStateOf(false) }
 
     val dateRangeLabel = remember(activeDateRange, selectedPeriod) {
         formatDateRange(activeDateRange.first, activeDateRange.second, selectedPeriod)
@@ -506,7 +525,10 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
             gcashExpenses = gcashExpenses,
             cashOnHand = cashOnHand,
             gcashRecorded = gcashRecorded,
-            unpaidTotal = unpaidTotal
+            unpaidTotal = unpaidTotal,
+            voidedOrdersSummary = voidedOrdersSummary,
+            onReconcile = { showReconcileDialog = true },
+            onViewVoidedDetails = { showVoidedDetailsDialog = true }
         )
     }
 
@@ -515,6 +537,22 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
             dateRangeLabel = dateRangeLabel,
             productSalesSummary = productSalesSummary,
             onDismiss = { showTopProductsDialog = false }
+        )
+    }
+
+    if (showReconcileDialog) {
+        CashReconciliationDialog(
+            cashSales = cashSales,
+            cashExpenses = cashExpenses,
+            onDismiss = { showReconcileDialog = false }
+        )
+    }
+
+    if (showVoidedDetailsDialog) {
+        VoidedAuditDetailsDialog(
+            dateRangeLabel = dateRangeLabel,
+            voidedOrders = voidedOrdersInPeriod,
+            onDismiss = { showVoidedDetailsDialog = false }
         )
     }
 }
@@ -529,8 +567,13 @@ fun UnifiedFinancialSummaryCard(
     gcashExpenses: Double,
     cashOnHand: Double,
     gcashRecorded: Double,
-    unpaidTotal: Double
+    unpaidTotal: Double,
+    voidedOrdersSummary: Pair<Int, Double>,
+    onReconcile: () -> Unit,
+    onViewVoidedDetails: () -> Unit
 ) {
+    val netProfit = totalSales - totalExpenses
+
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -569,6 +612,56 @@ fun UnifiedFinancialSummaryCard(
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Net Profit Banner
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = if (netProfit >= 0) SuccessGreen.copy(alpha = 0.12f) else DangerRed.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    .padding(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = if (netProfit >= 0) "Net Profit (Sales − Expenses)" else "Net Loss",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (netProfit >= 0) SuccessGreen else DangerRed
+                        )
+                        Text(
+                            text = formatMoney(netProfit),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = if (netProfit >= 0) SuccessGreen else DangerRed
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = if (netProfit >= 0) SuccessGreen else DangerRed,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = if (netProfit >= 0) "PROFIT" else "LOSS",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
                 }
             }
 
@@ -712,7 +805,267 @@ fun UnifiedFinancialSummaryCard(
                     )
                 }
             }
+
+            if (voidedOrdersSummary.first > 0) {
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClick = onViewVoidedDetails)
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Block,
+                            contentDescription = null,
+                            tint = DangerRed,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Column {
+                            Text(
+                                text = "Voided (Audit): ${voidedOrdersSummary.first} ${if (voidedOrdersSummary.first == 1) "order" else "orders"}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "${formatMoney(voidedOrdersSummary.second)} • Tap to view voided products ↗",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = DangerRed,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = onViewVoidedDetails,
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, DangerRed),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text("Audit ↗", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = DangerRed)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedButton(
+                onClick = onReconcile,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Calculate,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Reconcile Cash Drawer", fontWeight = FontWeight.Bold)
+            }
         }
+    }
+}
+
+@Composable
+fun CashReconciliationDialog(
+    cashSales: Double,
+    cashExpenses: Double,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("pos_settings", Context.MODE_PRIVATE) }
+    val defaultFloat = prefs.getFloat("default_cash_float", 1000f).toDouble()
+    val isPinRequired = prefs.getBoolean("is_pin_required", false)
+    val savedPin = prefs.getString("manager_pin", "") ?: ""
+
+    var startingFloatStr by remember { mutableStateOf(defaultFloat.toString()) }
+    var countedCashStr by remember { mutableStateOf("") }
+    var showPinPrompt by remember { mutableStateOf(false) }
+
+    val startingFloat = startingFloatStr.toDoubleOrNull() ?: 0.0
+    val expectedCash = startingFloat + cashSales - cashExpenses
+    val countedCash = countedCashStr.toDoubleOrNull()
+    val difference = if (countedCash != null) countedCash - expectedCash else 0.0
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(imageVector = Icons.Default.AccountBalanceWallet, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Cash Drawer Reconciliation", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = startingFloatStr,
+                    onValueChange = { startingFloatStr = it },
+                    label = { Text("Starting Cash Float", fontWeight = FontWeight.Bold) },
+                    leadingIcon = {
+                        Text("₱", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 16.sp)
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.primary,
+                        focusedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.12f),
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.primary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Starting Float:", style = MaterialTheme.typography.bodySmall)
+                            Text(formatMoney(startingFloat), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("+ Cash Sales:", style = MaterialTheme.typography.bodySmall, color = SuccessGreen)
+                            Text(formatMoney(cashSales), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall, color = SuccessGreen)
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("- Cash Expenses:", style = MaterialTheme.typography.bodySmall, color = DangerRed)
+                            Text(formatMoney(cashExpenses), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall, color = DangerRed)
+                        }
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Expected Cash in Drawer:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text(formatMoney(expectedCash), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = countedCashStr,
+                    onValueChange = { countedCashStr = it },
+                    label = { Text("Physical Counted Cash in Drawer", fontWeight = FontWeight.Bold) },
+                    leadingIcon = {
+                        Text("₱", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 16.sp)
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.primary,
+                        focusedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.18f),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.12f),
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        unfocusedLabelColor = MaterialTheme.colorScheme.primary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                if (countedCash != null) {
+                    val statusColor = when {
+                        abs(difference) < 0.01 -> SuccessGreen
+                        difference < 0 -> DangerRed
+                        else -> WarningOrange
+                    }
+                    val statusText = when {
+                        abs(difference) < 0.01 -> "EXACT MATCH (No shortage)"
+                        difference < 0 -> "SHORTAGE: ${formatMoney(difference)}"
+                        else -> "OVERAGE: +${formatMoney(difference)}"
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(statusColor.copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp))
+                            .padding(10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = statusText,
+                            fontWeight = FontWeight.Bold,
+                            color = statusColor,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val floatChanged = abs(startingFloat - defaultFloat) > 0.01
+                    if (floatChanged && isPinRequired && savedPin.isNotBlank()) {
+                        showPinPrompt = true
+                    } else {
+                        onDismiss()
+                    }
+                },
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Done", fontWeight = FontWeight.Bold)
+            }
+        }
+    )
+
+    if (showPinPrompt) {
+        var inputPin by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showPinPrompt = false },
+            title = { Text("Manager PIN Authorization", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Starting Cash Float was modified. Enter Manager PIN to authorize:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = inputPin,
+                        onValueChange = { if (it.length <= 4 && it.all { char -> char.isDigit() }) inputPin = it },
+                        label = { Text("Manager PIN") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (inputPin == savedPin) {
+                            showPinPrompt = false
+                            onDismiss()
+                            Toast.makeText(context, "Float Override Authorized", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Incorrect Manager PIN", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Authorize", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPinPrompt = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -935,6 +1288,164 @@ fun RankedProductSalesSummaryRow(rank: Int, summary: ProductSalesSummary) {
 
 
 
+
+@Composable
+fun VoidedAuditDetailsDialog(
+    dateRangeLabel: String,
+    voidedOrders: List<OrderWithItems>,
+    onDismiss: () -> Unit
+) {
+    val totalVoidedAmount = voidedOrders.sumOf { it.order.totalAmount }
+    val dateFormat = SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.getDefault())
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        GlassSurface(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 520.dp)
+                .padding(vertical = 16.dp),
+            shape = RoundedCornerShape(24.dp),
+            backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+            elevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Voided Transactions Audit",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "$dateRangeLabel • Total: ${formatMoney(totalVoidedAmount)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = DangerRed,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(DangerRed.copy(alpha = 0.15f), shape = RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Block,
+                            contentDescription = null,
+                            tint = DangerRed,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (voidedOrders.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No voided transactions during this period.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        voidedOrders.forEach { orderWithItems ->
+                            val order = orderWithItems.order
+                            val voidedTimeStr = dateFormat.format(Date(order.voidedTimestamp ?: order.timestamp))
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                                )
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "Order #${order.id}",
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        Text(
+                                            text = formatMoney(order.totalAmount),
+                                            fontWeight = FontWeight.Bold,
+                                            color = DangerRed,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(2.dp))
+
+                                    Text(
+                                        text = "Voided at: $voidedTimeStr (${order.paymentMethod})",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
+                                    orderWithItems.items.forEach { item ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = "${item.quantity}x ${item.productName}",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = formatMoney(item.subtotal),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Close Audit Details", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
 
 fun formatDateRange(start: Long, end: Long, period: ReportPeriod): String {
     if (period == ReportPeriod.ALL_TIME || end == Long.MAX_VALUE) {

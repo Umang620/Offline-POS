@@ -3,6 +3,7 @@ package com.umang620.offline_pos.ui.summary
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.umang620.offline_pos.data.local.OrderWithItems
 import com.umang620.offline_pos.data.local.ProductSalesSummary
 import com.umang620.offline_pos.data.repository.PosRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -299,6 +300,34 @@ class DailySummaryViewModel(private val repository: PosRepository) : ViewModel()
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = 0.0
+    )
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val voidedOrdersSummary: StateFlow<Pair<Int, Double>> = combine(
+        activeDateRange,
+        repository.allOrdersWithItems
+    ) { (start, end), allOrders ->
+        val voidedInPeriod = allOrders.filter {
+            it.order.status == "VOIDED" && it.order.timestamp in start..end
+        }
+        Pair(voidedInPeriod.size, voidedInPeriod.sumOf { it.order.totalAmount })
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = Pair(0, 0.0)
+    )
+
+    val voidedOrdersInPeriod: StateFlow<List<OrderWithItems>> = combine(
+        activeDateRange,
+        repository.allOrdersWithItems
+    ) { (start, end), allOrders ->
+        allOrders.filter {
+            it.order.status == "VOIDED" && it.order.timestamp in start..end
+        }.sortedByDescending { it.order.voidedTimestamp ?: it.order.timestamp }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
     )
 
     @OptIn(ExperimentalCoroutinesApi::class)

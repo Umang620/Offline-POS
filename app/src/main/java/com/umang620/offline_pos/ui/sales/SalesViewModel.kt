@@ -10,19 +10,41 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
+enum class SalesFilter(val label: String) {
+    ALL("All"),
+    CASH("Cash"),
+    GCASH("GCash"),
+    VOIDED("Voided")
+}
+
 class SalesViewModel(private val repository: PosRepository) : ViewModel() {
 
     private val _selectedDate = MutableStateFlow(getStartOfDay(System.currentTimeMillis()))
     val selectedDate: StateFlow<Long> = _selectedDate.asStateFlow()
 
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _selectedFilter = MutableStateFlow(SalesFilter.ALL)
+    val selectedFilter: StateFlow<SalesFilter> = _selectedFilter.asStateFlow()
+
     fun updateSelectedDate(timestamp: Long) {
         _selectedDate.value = getStartOfDay(timestamp)
+    }
+
+    fun updateSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun updateFilter(filter: SalesFilter) {
+        _selectedFilter.value = filter
     }
 
     companion object {
@@ -60,6 +82,39 @@ class SalesViewModel(private val repository: PosRepository) : ViewModel() {
         initialValue = emptyList()
     )
 
+    val filteredOrdersWithItems: StateFlow<List<OrderWithItems>> = combine(
+        ordersWithItems,
+        searchQuery,
+        selectedFilter
+    ) { orders, query, filter ->
+        orders.filter { orderWithItems ->
+            val order = orderWithItems.order
+            val matchesFilter = when (filter) {
+                SalesFilter.ALL -> true
+                SalesFilter.CASH -> order.paymentMethod.equals("CASH", ignoreCase = true) && order.status != "VOIDED"
+                SalesFilter.GCASH -> order.paymentMethod.equals("GCASH", ignoreCase = true) && order.status != "VOIDED"
+                SalesFilter.VOIDED -> order.status == "VOIDED"
+            }
+
+            val matchesQuery = if (query.isBlank()) {
+                true
+            } else {
+                val q = query.trim().lowercase()
+                order.id.toString().contains(q) ||
+                        order.orderNumber.lowercase().contains(q) ||
+                        order.paymentMethod.lowercase().contains(q) ||
+                        (order.gcashRefNumber?.lowercase()?.contains(q) == true) ||
+                        orderWithItems.items.any { it.productName.lowercase().contains(q) }
+            }
+
+            matchesFilter && matchesQuery
+        }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val paidOrdersWithItems: StateFlow<List<OrderWithItems>> = _selectedDate.flatMapLatest { date ->
         val start = getStartOfDay(date)
@@ -71,6 +126,15 @@ class SalesViewModel(private val repository: PosRepository) : ViewModel() {
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
+    )
+
+    val todayRevenue: StateFlow<Double> = repository.getTotalRevenueByDate(
+        getStartOfDay(System.currentTimeMillis()),
+        getEndOfDay(System.currentTimeMillis())
+    ).stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0.0
     )
 
     @OptIn(ExperimentalCoroutinesApi::class)

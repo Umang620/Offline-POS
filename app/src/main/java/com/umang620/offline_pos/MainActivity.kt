@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -34,6 +36,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
@@ -46,6 +49,7 @@ import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.MoneyOff
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -81,11 +85,14 @@ import com.umang620.offline_pos.ui.register.PosViewModel
 import com.umang620.offline_pos.ui.register.RegisterScreen
 import com.umang620.offline_pos.ui.sales.SalesHistoryScreen
 import com.umang620.offline_pos.ui.sales.SalesViewModel
+import com.umang620.offline_pos.ui.settings.SettingsScreen
+import com.umang620.offline_pos.ui.settings.SettingsViewModel
 import com.umang620.offline_pos.ui.summary.DailySummaryScreen
 import com.umang620.offline_pos.ui.summary.DailySummaryViewModel
 import com.umang620.offline_pos.ui.theme.OfflinePOSTheme
 import com.umang620.offline_pos.ui.unpaid.UnpaidOrdersScreen
 import com.umang620.offline_pos.ui.unpaid.UnpaidOrdersViewModel
+import com.umang620.offline_pos.utils.formatMoney
 
 enum class PosTab(val title: String, val icon: ImageVector) {
     REGISTER("Register", Icons.Default.PointOfSale),
@@ -93,7 +100,8 @@ enum class PosTab(val title: String, val icon: ImageVector) {
     SALES("Sales", Icons.AutoMirrored.Filled.TrendingUp),
     EXPENSES("Expenses", Icons.Default.Receipt),
     SUMMARY("Summary", Icons.Default.Assessment),
-    INVENTORY("Inventory", Icons.Default.Inventory)
+    INVENTORY("Inventory", Icons.Default.Inventory),
+    SETTINGS("Settings", Icons.Default.Settings)
 }
 
 class MainActivity : ComponentActivity() {
@@ -115,6 +123,7 @@ class MainActivity : ComponentActivity() {
         val expensesViewModel: ExpensesViewModel by viewModels { ExpensesViewModel.Factory(repository) }
         val dailySummaryViewModel: DailySummaryViewModel by viewModels { DailySummaryViewModel.Factory(repository) }
         val inventoryViewModel: InventoryViewModel by viewModels { InventoryViewModel.Factory(repository) }
+        val settingsViewModel: SettingsViewModel by viewModels { SettingsViewModel.Factory(applicationContext) }
 
         setContent {
             val context = LocalContext.current
@@ -147,6 +156,7 @@ class MainActivity : ComponentActivity() {
                             expensesViewModel = expensesViewModel,
                             dailySummaryViewModel = dailySummaryViewModel,
                             inventoryViewModel = inventoryViewModel,
+                            settingsViewModel = settingsViewModel,
                             isDarkMode = isDarkMode,
                             onToggleDarkMode = toggleDarkMode
                         )
@@ -226,10 +236,12 @@ fun MainAppScreen(
     expensesViewModel: ExpensesViewModel,
     dailySummaryViewModel: DailySummaryViewModel,
     inventoryViewModel: InventoryViewModel,
+    settingsViewModel: SettingsViewModel,
     isDarkMode: Boolean,
     onToggleDarkMode: () -> Unit
 ) {
     var selectedTab by remember { mutableStateOf(PosTab.REGISTER) }
+    val todayRevenue by salesViewModel.todayRevenue.collectAsState()
 
     BoxWithConstraints {
         val isWideScreen = maxWidth > 600.dp || maxHeight < 450.dp
@@ -272,31 +284,18 @@ fun MainAppScreen(
                                 )
                             )
                         }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Compact Light/Dark Mode Toggle beside/under Inventory in Sidebar
-                        IconButton(
-                            onClick = onToggleDarkMode,
-                            modifier = Modifier
-                                .padding(bottom = 16.dp)
-                                .background(
-                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                        ) {
-                            Icon(
-                                imageVector = if (isDarkMode) Icons.Default.WbSunny else Icons.Default.DarkMode,
-                                contentDescription = if (isDarkMode) "Light Mode" else "Dark Mode",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
                     }
                 }
                 Scaffold(
                     modifier = Modifier.weight(1f),
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = MaterialTheme.colorScheme.background,
+                    topBar = {
+                        TopHeaderBar(
+                            todayRevenue = todayRevenue,
+                            isDarkMode = isDarkMode,
+                            onToggleDarkMode = onToggleDarkMode
+                        )
+                    }
                 ) { innerPadding ->
                     TabContent(
                         selectedTab = selectedTab,
@@ -307,6 +306,7 @@ fun MainAppScreen(
                         expensesViewModel = expensesViewModel,
                         dailySummaryViewModel = dailySummaryViewModel,
                         inventoryViewModel = inventoryViewModel,
+                        settingsViewModel = settingsViewModel,
                         onSelectTab = { selectedTab = it }
                     )
                 }
@@ -315,6 +315,13 @@ fun MainAppScreen(
             Scaffold(
                 modifier = Modifier.fillMaxSize(),
                 containerColor = MaterialTheme.colorScheme.background,
+                topBar = {
+                    TopHeaderBar(
+                        todayRevenue = todayRevenue,
+                        isDarkMode = isDarkMode,
+                        onToggleDarkMode = onToggleDarkMode
+                    )
+                },
                 bottomBar = {
                     Row(
                         modifier = Modifier
@@ -323,7 +330,7 @@ fun MainAppScreen(
                             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.90f))
                     ) {
                         NavigationBar(
-                            modifier = Modifier.width((7 * 72).dp),
+                            modifier = Modifier.width((PosTab.entries.size * 72).dp),
                             containerColor = Color.Transparent,
                             tonalElevation = 6.dp
                         ) {
@@ -352,27 +359,6 @@ fun MainAppScreen(
                                     alwaysShowLabel = true
                                 )
                             }
-
-                            // Compact Light / Dark toggle in bottom bar on phone view
-                            NavigationBarItem(
-                                selected = false,
-                                onClick = onToggleDarkMode,
-                                icon = {
-                                    Icon(
-                                        imageVector = if (isDarkMode) Icons.Default.WbSunny else Icons.Default.DarkMode,
-                                        contentDescription = if (isDarkMode) "Light Mode" else "Dark Mode",
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                },
-                                label = {
-                                    Text(
-                                        text = if (isDarkMode) "Light" else "Dark",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                },
-                                alwaysShowLabel = true
-                            )
                         }
                     }
                 }
@@ -386,6 +372,7 @@ fun MainAppScreen(
                     expensesViewModel = expensesViewModel,
                     dailySummaryViewModel = dailySummaryViewModel,
                     inventoryViewModel = inventoryViewModel,
+                    settingsViewModel = settingsViewModel,
                     onSelectTab = { selectedTab = it }
                 )
             }
@@ -403,6 +390,7 @@ fun TabContent(
     expensesViewModel: ExpensesViewModel,
     dailySummaryViewModel: DailySummaryViewModel,
     inventoryViewModel: InventoryViewModel,
+    settingsViewModel: SettingsViewModel,
     onSelectTab: (PosTab) -> Unit = {}
 ) {
     when (selectedTab) {
@@ -442,6 +430,11 @@ fun TabContent(
                 InventoryScreen(viewModel = inventoryViewModel)
             }
         }
+        PosTab.SETTINGS -> {
+            ScaffoldContentWrapper(innerPadding) {
+                SettingsScreen(viewModel = settingsViewModel)
+            }
+        }
     }
 }
 
@@ -456,5 +449,80 @@ fun ScaffoldContentWrapper(
             .padding(paddingValues)
     ) {
         content()
+    }
+}
+
+@Composable
+fun TopHeaderBar(
+    todayRevenue: Double,
+    isDarkMode: Boolean,
+    onToggleDarkMode: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.88f))
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Image(
+                painter = painterResource(id = R.drawable.umnx_logo),
+                contentDescription = "POS Logo",
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Offline POS",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .background(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.85f),
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.TrendingUp,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Today: ${formatMoney(todayRevenue)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            IconButton(
+                onClick = onToggleDarkMode,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = if (isDarkMode) Icons.Default.WbSunny else Icons.Default.DarkMode,
+                    contentDescription = "Toggle Dark Mode",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
     }
 }

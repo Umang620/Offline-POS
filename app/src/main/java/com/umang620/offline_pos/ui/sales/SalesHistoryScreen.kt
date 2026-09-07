@@ -1,7 +1,10 @@
 package com.umang620.offline_pos.ui.sales
 
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,14 +20,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -32,11 +38,15 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -50,7 +60,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -69,14 +82,24 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SalesHistoryScreen(viewModel: SalesViewModel) {
-    val orders by viewModel.ordersWithItems.collectAsState()
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("pos_settings", Context.MODE_PRIVATE) }
+    val isPinRequired = remember { prefs.getBoolean("is_pin_required", false) }
+    val isVoidPinRequired = remember { prefs.getBoolean("is_void_pin_required", false) }
+    val savedPin = remember { prefs.getString("manager_pin", "") ?: "" }
+
+    val orders by viewModel.filteredOrdersWithItems.collectAsState()
     val totalRevenue by viewModel.totalRevenue.collectAsState()
     val totalOrders by viewModel.totalOrderCount.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val selectedFilter by viewModel.selectedFilter.collectAsState()
 
     var showDatePicker by remember { mutableStateOf(false) }
     var orderToVoid by remember { mutableStateOf<OrderWithItems?>(null) }
     var orderToDelete by remember { mutableStateOf<OrderWithItems?>(null) }
+    var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var showPinPrompt by remember { mutableStateOf(false) }
 
     val isToday = remember(selectedDate) {
         val todayStart = SalesViewModel.getStartOfDay(System.currentTimeMillis())
@@ -181,7 +204,65 @@ fun SalesHistoryScreen(viewModel: SalesViewModel) {
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Search Bar
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { viewModel.updateSearchQuery(it) },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Search receipt #, item name, or payment...") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Clear search",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+            )
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Payment & Status Filter Chips
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            SalesFilter.entries.forEach { filter ->
+                val isSelected = selectedFilter == filter
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { viewModel.updateFilter(filter) },
+                    label = { Text(filter.label, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium) },
+                    shape = RoundedCornerShape(10.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         Text(
             text = "Transaction History (${orders.size})",
@@ -228,8 +309,16 @@ fun SalesHistoryScreen(viewModel: SalesViewModel) {
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.voidOrder(orderWithItems.order.id)
-                        orderToVoid = null
+                        val executeVoid = {
+                            viewModel.voidOrder(orderWithItems.order.id)
+                            orderToVoid = null
+                        }
+                        if (isVoidPinRequired && savedPin.isNotBlank()) {
+                            pendingAction = executeVoid
+                            showPinPrompt = true
+                        } else {
+                            executeVoid()
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
                     shape = RoundedCornerShape(8.dp)
@@ -253,8 +342,16 @@ fun SalesHistoryScreen(viewModel: SalesViewModel) {
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.deleteOrder(orderWithItems.order.id)
-                        orderToDelete = null
+                        val executeDelete = {
+                            viewModel.deleteOrder(orderWithItems.order.id)
+                            orderToDelete = null
+                        }
+                        if (isPinRequired && savedPin.isNotBlank()) {
+                            pendingAction = executeDelete
+                            showPinPrompt = true
+                        } else {
+                            executeDelete()
+                        }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
                     shape = RoundedCornerShape(8.dp)
@@ -264,6 +361,57 @@ fun SalesHistoryScreen(viewModel: SalesViewModel) {
             },
             dismissButton = {
                 TextButton(onClick = { orderToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showPinPrompt) {
+        var inputPin by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = {
+                showPinPrompt = false
+                pendingAction = null
+            },
+            title = { Text("Manager PIN Authorization", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Enter 4-digit Manager PIN to authorize this action:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = inputPin,
+                        onValueChange = { if (it.length <= 4 && it.all { char -> char.isDigit() }) inputPin = it },
+                        label = { Text("Manager PIN") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (inputPin == savedPin) {
+                            pendingAction?.invoke()
+                            showPinPrompt = false
+                            pendingAction = null
+                            Toast.makeText(context, "Action Authorized", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Incorrect Manager PIN", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Authorize", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showPinPrompt = false
+                    pendingAction = null
+                }) {
                     Text("Cancel")
                 }
             }
