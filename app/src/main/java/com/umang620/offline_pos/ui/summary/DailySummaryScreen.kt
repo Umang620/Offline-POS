@@ -32,6 +32,9 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Share
+import com.umang620.offline_pos.utils.CsvExportHelper
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.PointOfSale
@@ -70,6 +73,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.umang620.offline_pos.data.local.ExpenseEntity
 import com.umang620.offline_pos.data.local.OrderWithItems
 import com.umang620.offline_pos.data.local.ProductSalesSummary
 import com.umang620.offline_pos.ui.theme.DangerRed
@@ -108,6 +112,8 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
     val unpaidTotal by viewModel.unpaidTotal.collectAsState()
     val voidedOrdersSummary by viewModel.voidedOrdersSummary.collectAsState()
     val voidedOrdersInPeriod by viewModel.voidedOrdersInPeriod.collectAsState()
+    val ordersInPeriod by viewModel.ordersInPeriod.collectAsState()
+    val expensesInPeriod by viewModel.expensesInPeriod.collectAsState()
 
     val allTimeTotalSales by viewModel.allTimeTotalSales.collectAsState()
     val allTimeProductsSold by viewModel.allTimeProductsSold.collectAsState()
@@ -527,6 +533,9 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
             gcashRecorded = gcashRecorded,
             unpaidTotal = unpaidTotal,
             voidedOrdersSummary = voidedOrdersSummary,
+            ordersInPeriod = ordersInPeriod,
+            expensesInPeriod = expensesInPeriod,
+            dateRangeLabel = dateRangeLabel,
             onReconcile = { showReconcileDialog = true },
             onViewVoidedDetails = { showVoidedDetailsDialog = true }
         )
@@ -569,9 +578,13 @@ fun UnifiedFinancialSummaryCard(
     gcashRecorded: Double,
     unpaidTotal: Double,
     voidedOrdersSummary: Pair<Int, Double>,
+    ordersInPeriod: List<OrderWithItems>,
+    expensesInPeriod: List<ExpenseEntity>,
+    dateRangeLabel: String,
     onReconcile: () -> Unit,
     onViewVoidedDetails: () -> Unit
 ) {
+    val context = LocalContext.current
     val netProfit = totalSales - totalExpenses
 
     GlassCard(
@@ -862,18 +875,46 @@ fun UnifiedFinancialSummaryCard(
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
             Spacer(modifier = Modifier.height(12.dp))
 
-            OutlinedButton(
-                onClick = onReconcile,
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Calculate,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Reconcile Cash Drawer", fontWeight = FontWeight.Bold)
+                OutlinedButton(
+                    onClick = onReconcile,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Calculate,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Reconcile", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+
+                Button(
+                    onClick = {
+                        val result = CsvExportHelper.exportSalesToCsv(context, ordersInPeriod, dateRangeLabel)
+                        if (result.isSuccess) {
+                            Toast.makeText(context, result.getOrNull(), Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, result.exceptionOrNull()?.message, Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Export CSV ↗", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
             }
         }
     }

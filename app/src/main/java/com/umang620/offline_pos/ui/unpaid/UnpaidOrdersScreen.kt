@@ -29,7 +29,17 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoneyOff
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.material.icons.filled.MoneyOff
 import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material.icons.filled.Print
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import com.umang620.offline_pos.utils.BluetoothPrinterHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -78,6 +88,8 @@ fun UnpaidOrdersScreen(
     viewModel: UnpaidOrdersViewModel,
     onEditOrder: ((OrderWithItems) -> Unit)? = null
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val unpaidOrders by viewModel.unpaidOrders.collectAsState()
     val unpaidTotal by viewModel.unpaidTotal.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
@@ -282,14 +294,27 @@ fun UnpaidOrdersScreen(
             orderWithItems = orderWithItems,
             onDismiss = { selectedOrderToPay = null },
             onConfirmPay = { paymentMethod, cashReceived, changeAmount, gcashRef ->
+                val settledOrderId = orderWithItems.order.id
                 viewModel.payUnpaidOrder(
-                    orderId = orderWithItems.order.id,
+                    orderId = settledOrderId,
                     paymentMethod = paymentMethod,
                     cashReceived = cashReceived,
                     changeAmount = changeAmount,
                     gcashRefNumber = gcashRef
                 )
                 selectedOrderToPay = null
+                Toast.makeText(context, "Order #$settledOrderId Settled Successfully!", Toast.LENGTH_SHORT).show()
+
+                val prefs = context.getSharedPreferences("pos_settings", Context.MODE_PRIVATE)
+                val isAutoPrintEnabled = prefs.getBoolean("is_auto_print_enabled", true)
+                if (isAutoPrintEnabled) {
+                    scope.launch(Dispatchers.IO) {
+                        val updatedOrder = viewModel.getOrderWithItemsById(settledOrderId)
+                        if (updatedOrder != null) {
+                            BluetoothPrinterHelper.printSalesReceipt(context, updatedOrder)
+                        }
+                    }
+                }
             }
         )
     }
@@ -301,6 +326,8 @@ fun UnpaidOrderCard(
     onPayClick: () -> Unit,
     onEditClick: (() -> Unit)? = null
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var showDetailsDialog by remember { mutableStateOf(false) }
     val order = orderWithItems.order
     val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.getDefault()) }
@@ -482,6 +509,29 @@ fun UnpaidOrderCard(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch(Dispatchers.IO) {
+                                    val result = BluetoothPrinterHelper.printSalesReceipt(context, orderWithItems)
+                                    withContext(Dispatchers.Main) {
+                                        if (result.isSuccess) {
+                                            Toast.makeText(context, result.getOrNull(), Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            val errorMsg = result.exceptionOrNull()?.message ?: "Print failed"
+                                            Toast.makeText(context, "ERROR: $errorMsg", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                }
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.Print, contentDescription = "Print Slip", modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Print", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+
                         if (onEditClick != null) {
                             OutlinedButton(
                                 onClick = onEditClick,

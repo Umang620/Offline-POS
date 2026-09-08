@@ -1,6 +1,10 @@
 package com.umang620.offline_pos.ui.register
 
+import android.content.Context
 import android.widget.Toast
+import com.umang620.offline_pos.utils.BluetoothPrinterHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -36,7 +40,9 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.foundation.rememberScrollState
@@ -84,6 +90,7 @@ import com.umang620.offline_pos.ui.theme.SuccessGreen
 import com.umang620.offline_pos.ui.theme.WarningOrange
 import kotlinx.coroutines.launch
 import com.umang620.offline_pos.utils.formatMoney
+import kotlinx.coroutines.withContext
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,6 +107,7 @@ fun RegisterScreen(viewModel: PosViewModel) {
 
     var showCartSheet by remember { mutableStateOf(false) }
     var showCheckoutDialog by remember { mutableStateOf(false) }
+    var showNoPrinterDialog by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
 
@@ -114,6 +122,28 @@ fun RegisterScreen(viewModel: PosViewModel) {
                     showCartSheet = false
                     val msg = if (event.isUnpaid) "Order #${event.orderId} Saved as UNPAID" else "Order #${event.orderId} Completed!"
                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+
+                    val prefs = context.getSharedPreferences("pos_settings", Context.MODE_PRIVATE)
+                    val autoPrint = prefs.getBoolean("is_auto_print_enabled", true)
+                    val address = prefs.getString("selected_printer_address", "") ?: ""
+
+                    if (autoPrint) {
+                        if (address.isBlank()) {
+                            showNoPrinterDialog = true
+                        } else {
+                            scope.launch(Dispatchers.IO) {
+                                val orderWithItems = viewModel.getOrderWithItemsById(event.orderId)
+                                if (orderWithItems != null) {
+                                    val result = BluetoothPrinterHelper.printSalesReceipt(context, orderWithItems)
+                                    if (result.isFailure) {
+                                        withContext(Dispatchers.Main) {
+                                            showNoPrinterDialog = true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
                 is CheckoutEvent.Error -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_LONG).show()
@@ -342,6 +372,43 @@ fun RegisterScreen(viewModel: PosViewModel) {
                     gcashRefNumber = gcashRef,
                     customerName = customerName
                 )
+            }
+        )
+    }
+
+    if (showNoPrinterDialog) {
+        AlertDialog(
+            onDismissRequest = { showNoPrinterDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(imageVector = Icons.Default.Print, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("No Thermal Printer Connected", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Auto-Print is enabled, but no thermal printer is connected or selected.")
+                    Text("Would you like to turn off Auto-Print to stop this notification?", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val prefs = context.getSharedPreferences("pos_settings", Context.MODE_PRIVATE)
+                        prefs.edit().putBoolean("is_auto_print_enabled", false).apply()
+                        showNoPrinterDialog = false
+                        Toast.makeText(context, "Auto-Print Disabled", Toast.LENGTH_SHORT).show()
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Turn Off Auto-Print", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNoPrinterDialog = false }) {
+                    Text("Dismiss")
+                }
             }
         )
     }

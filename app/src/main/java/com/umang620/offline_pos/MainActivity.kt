@@ -123,7 +123,7 @@ class MainActivity : ComponentActivity() {
         val expensesViewModel: ExpensesViewModel by viewModels { ExpensesViewModel.Factory(repository) }
         val dailySummaryViewModel: DailySummaryViewModel by viewModels { DailySummaryViewModel.Factory(repository) }
         val inventoryViewModel: InventoryViewModel by viewModels { InventoryViewModel.Factory(repository) }
-        val settingsViewModel: SettingsViewModel by viewModels { SettingsViewModel.Factory(applicationContext) }
+        val settingsViewModel: SettingsViewModel by viewModels { SettingsViewModel.Factory(applicationContext, repository) }
 
         setContent {
             val context = LocalContext.current

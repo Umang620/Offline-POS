@@ -25,6 +25,8 @@ class UnpaidOrdersViewModel(private val repository: PosRepository) : ViewModel()
         _selectedDate.value = getStartOfDay(timestamp)
     }
 
+    suspend fun getOrderWithItemsById(orderId: Long): OrderWithItems? = repository.getOrderWithItemsById(orderId)
+
     companion object {
         fun getStartOfDay(timestamp: Long): Long {
             val calendar = Calendar.getInstance()

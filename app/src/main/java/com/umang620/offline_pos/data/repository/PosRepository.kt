@@ -30,6 +30,8 @@ class PosRepository(
     val paidOrdersWithItems: Flow<List<OrderWithItems>> = orderDao.getPaidOrdersWithItems()
     val unpaidOrdersWithItems: Flow<List<OrderWithItems>> = orderDao.getUnpaidOrdersWithItems()
 
+    suspend fun getOrderWithItemsById(orderId: Long): OrderWithItems? = orderDao.getOrderWithItemsById(orderId)
+
     val totalRevenue: Flow<Double> = orderDao.getTotalRevenue()
     val cashSalesTotal: Flow<Double> = orderDao.getCashSalesTotal()
     val gcashSalesTotal: Flow<Double> = orderDao.getGCashSalesTotal()

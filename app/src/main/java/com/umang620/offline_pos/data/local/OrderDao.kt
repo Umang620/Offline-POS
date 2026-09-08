@@ -9,6 +9,10 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface OrderDao {
     @Transaction
+    @Query("SELECT * FROM orders WHERE id = :orderId")
+    suspend fun getOrderWithItemsById(orderId: Long): OrderWithItems?
+
+    @Transaction
     @Query("SELECT * FROM orders ORDER BY timestamp DESC")
     fun getAllOrdersWithItems(): Flow<List<OrderWithItems>>
 

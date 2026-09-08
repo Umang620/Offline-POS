@@ -162,6 +162,8 @@ class PosViewModel(private val repository: PosRepository) : ViewModel() {
         _cartItems.value = emptyList()
     }
 
+    suspend fun getOrderWithItemsById(orderId: Long): OrderWithItems? = repository.getOrderWithItemsById(orderId)
+
     fun processCheckout(
         paymentMethod: String,
         isUnpaid: Boolean = false,

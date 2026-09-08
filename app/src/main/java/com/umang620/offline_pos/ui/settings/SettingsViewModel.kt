@@ -4,14 +4,21 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.umang620.offline_pos.data.local.ExpenseEntity
+import com.umang620.offline_pos.data.local.OrderWithItems
+import com.umang620.offline_pos.data.repository.PosRepository
 import com.umang620.offline_pos.utils.BluetoothPrinterHelper
 import com.umang620.offline_pos.utils.PrinterDevice
 import com.umang620.offline_pos.utils.PrinterType
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class SettingsViewModel(context: Context) : ViewModel() {
+class SettingsViewModel(context: Context, private val repository: PosRepository? = null) : ViewModel() {
+
+    val allOrdersWithItems: Flow<List<OrderWithItems>>? = repository?.allOrdersWithItems
+    val allExpenses: Flow<List<ExpenseEntity>>? = repository?.allExpenses
 
     private val prefs: SharedPreferences = context.applicationContext.getSharedPreferences("pos_settings", Context.MODE_PRIVATE)
 
@@ -23,6 +30,9 @@ class SettingsViewModel(context: Context) : ViewModel() {
 
     private val _isVoidPinRequired = MutableStateFlow(prefs.getBoolean("is_void_pin_required", false))
     val isVoidPinRequired: StateFlow<Boolean> = _isVoidPinRequired.asStateFlow()
+
+    private val _isAutoPrintEnabled = MutableStateFlow(prefs.getBoolean("is_auto_print_enabled", true))
+    val isAutoPrintEnabled: StateFlow<Boolean> = _isAutoPrintEnabled.asStateFlow()
 
     private val _defaultCashFloat = MutableStateFlow(prefs.getFloat("default_cash_float", 1000f).toDouble())
     val defaultCashFloat: StateFlow<Double> = _defaultCashFloat.asStateFlow()
@@ -84,6 +94,11 @@ class SettingsViewModel(context: Context) : ViewModel() {
         prefs.edit().putBoolean("is_void_pin_required", required).apply()
     }
 
+    fun setAutoPrintEnabled(enabled: Boolean) {
+        _isAutoPrintEnabled.value = enabled
+        prefs.edit().putBoolean("is_auto_print_enabled", enabled).apply()
+    }
+
     fun setDefaultCashFloat(amount: Double) {
         _defaultCashFloat.value = amount
         prefs.edit().putFloat("default_cash_float", amount.toFloat()).apply()
@@ -94,10 +109,10 @@ class SettingsViewModel(context: Context) : ViewModel() {
         return _managerPin.value == input.trim()
     }
 
-    class Factory(private val context: Context) : ViewModelProvider.Factory {
+    class Factory(private val context: Context, private val repository: PosRepository? = null) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            return SettingsViewModel(context) as T
+            return SettingsViewModel(context, repository) as T
         }
     }
 }

@@ -10,6 +10,7 @@ import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbEndpoint
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
+import com.umang620.offline_pos.data.local.OrderWithItems
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 import java.text.SimpleDateFormat
@@ -87,14 +88,34 @@ object BluetoothPrinterHelper {
             return Result.failure(IllegalArgumentException("No printer selected! Please select a Bluetooth or USB printer in Settings."))
         }
 
+        val bytes = buildTestReceiptBytes(if (printerType == PrinterType.USB) "USB Thermal Printer" else "Bluetooth Printer")
+        return transmitReceiptBytes(context, deviceAddress, printerType, bytes)
+    }
+
+    @SuppressLint("MissingPermission")
+    fun printSalesReceipt(context: Context, orderWithItems: OrderWithItems): Result<String> {
+        val prefs = context.applicationContext.getSharedPreferences("pos_settings", Context.MODE_PRIVATE)
+        val address = prefs.getString("selected_printer_address", "") ?: ""
+        val typeName = prefs.getString("selected_printer_type", PrinterType.BLUETOOTH.name) ?: PrinterType.BLUETOOTH.name
+        val printerType = try { PrinterType.valueOf(typeName) } catch (_: Exception) { PrinterType.BLUETOOTH }
+
+        if (address.isBlank()) {
+            return Result.failure(IllegalArgumentException("No printer selected in Settings."))
+        }
+
+        val bytes = buildOrderReceiptBytes(orderWithItems)
+        return transmitReceiptBytes(context, address, printerType, bytes)
+    }
+
+    private fun transmitReceiptBytes(context: Context, deviceAddress: String, printerType: PrinterType, bytes: ByteArray): Result<String> {
         return if (printerType == PrinterType.USB || deviceAddress.startsWith("USB:")) {
-            printUsbTestReceipt(context, deviceAddress)
+            transmitUsbBytes(context, deviceAddress, bytes)
         } else {
-            printBluetoothTestReceipt(context, deviceAddress)
+            transmitBluetoothBytes(context, deviceAddress, bytes)
         }
     }
 
-    private fun printUsbTestReceipt(context: Context, deviceAddress: String): Result<String> {
+    private fun transmitUsbBytes(context: Context, deviceAddress: String, bytes: ByteArray): Result<String> {
         val usbManager = context.getSystemService(Context.USB_SERVICE) as? UsbManager
             ?: return Result.failure(IllegalStateException("USB Service not available on this device."))
 
@@ -136,7 +157,6 @@ object BluetoothPrinterHelper {
         return try {
             connection.claimInterface(usbInterface, true)
 
-            val bytes = buildTestReceiptBytes("USB Thermal Printer")
             val bytesTransferred = connection.bulkTransfer(bulkOutEndpoint, bytes, bytes.size, 5000)
 
             connection.releaseInterface(usbInterface)
@@ -154,7 +174,7 @@ object BluetoothPrinterHelper {
     }
 
     @SuppressLint("MissingPermission")
-    private fun printBluetoothTestReceipt(context: Context, deviceAddress: String): Result<String> {
+    private fun transmitBluetoothBytes(context: Context, deviceAddress: String, bytes: ByteArray): Result<String> {
         val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
         val adapter = bluetoothManager?.adapter
 
@@ -169,7 +189,6 @@ object BluetoothPrinterHelper {
             socket.connect()
             val outputStream: OutputStream = socket.outputStream
 
-            val bytes = buildTestReceiptBytes(device.name ?: "Bluetooth Printer")
             outputStream.write(bytes)
             outputStream.flush()
 
@@ -182,6 +201,86 @@ object BluetoothPrinterHelper {
         } catch (e: Exception) {
             Result.failure(Exception("Cannot connect to Bluetooth printer! Ensure power is ON and in range."))
         }
+    }
+
+    private fun buildOrderReceiptBytes(orderWithItems: OrderWithItems): ByteArray {
+        val stream = ByteArrayOutputStream()
+        val order = orderWithItems.order
+        val dateFormat = SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.getDefault())
+        val dateStr = dateFormat.format(Date(order.timestamp))
+        val isUnpaid = order.status == "UNPAID"
+
+        val escInit = byteArrayOf(0x1B, 0x40)
+        val escAlignCenter = byteArrayOf(0x1B, 0x61, 0x01)
+        val escAlignLeft = byteArrayOf(0x1B, 0x61, 0x00)
+        val escCutPaper = byteArrayOf(0x1D, 0x56, 0x41, 0x03)
+
+        stream.write(escInit)
+        stream.write(escAlignCenter)
+        stream.write("================================\n".toByteArray(Charsets.US_ASCII))
+        stream.write("          OFFLINE POS           \n".toByteArray(Charsets.US_ASCII))
+        if (isUnpaid) {
+            stream.write("      UNPAID CHARGE SLIP        \n".toByteArray(Charsets.US_ASCII))
+        } else {
+            stream.write("        OFFICIAL RECEIPT        \n".toByteArray(Charsets.US_ASCII))
+        }
+        stream.write("================================\n".toByteArray(Charsets.US_ASCII))
+        stream.write(escAlignLeft)
+        stream.write("Order #: ${order.id}\n".toByteArray(Charsets.US_ASCII))
+        if (order.orderNumber.isNotBlank()) {
+            stream.write("Customer: ${order.orderNumber}\n".toByteArray(Charsets.US_ASCII))
+        }
+        stream.write("Date: $dateStr\n".toByteArray(Charsets.US_ASCII))
+        stream.write("Status: ${order.status}\n".toByteArray(Charsets.US_ASCII))
+        if (!isUnpaid) {
+            stream.write("Payment: ${order.paymentMethod}\n".toByteArray(Charsets.US_ASCII))
+            if (!order.gcashRefNumber.isNullOrBlank()) {
+                stream.write("GCash Ref: ${order.gcashRefNumber}\n".toByteArray(Charsets.US_ASCII))
+            }
+        }
+        stream.write("--------------------------------\n".toByteArray(Charsets.US_ASCII))
+
+        orderWithItems.items.forEach { item ->
+            val nameLine = "${item.quantity}x ${item.productName}"
+            val priceStr = formatMoney(item.subtotal)
+            val padding = 32 - nameLine.length - priceStr.length
+            val spaces = if (padding > 0) " ".repeat(padding) else " "
+            stream.write("$nameLine$spaces$priceStr\n".toByteArray(Charsets.US_ASCII))
+        }
+
+        stream.write("--------------------------------\n".toByteArray(Charsets.US_ASCII))
+        val totalLine = if (isUnpaid) "PENDING BALANCE:" else "TOTAL AMOUNT:"
+        val totalVal = formatMoney(order.totalAmount)
+        val totalPadding = 32 - totalLine.length - totalVal.length
+        val totalSpaces = if (totalPadding > 0) " ".repeat(totalPadding) else " "
+        stream.write("$totalLine$totalSpaces$totalVal\n".toByteArray(Charsets.US_ASCII))
+
+        if (!isUnpaid && order.cashReceived != null && order.cashReceived > 0) {
+            val cashLine = "Cash Tendered:"
+            val cashVal = formatMoney(order.cashReceived)
+            val cashPad = 32 - cashLine.length - cashVal.length
+            val cashSpaces = if (cashPad > 0) " ".repeat(cashPad) else " "
+            stream.write("$cashLine$cashSpaces$cashVal\n".toByteArray(Charsets.US_ASCII))
+
+            val changeLine = "Change Given:"
+            val changeVal = formatMoney(order.changeAmount ?: 0.0)
+            val changePad = 32 - changeLine.length - changeVal.length
+            val changeSpaces = if (changePad > 0) " ".repeat(changePad) else " "
+            stream.write("$changeLine$changeSpaces$changeVal\n".toByteArray(Charsets.US_ASCII))
+        }
+
+        stream.write("================================\n".toByteArray(Charsets.US_ASCII))
+        stream.write(escAlignCenter)
+        if (isUnpaid) {
+            stream.write("    CHARGE SALE - PENDING       \n".toByteArray(Charsets.US_ASCII))
+            stream.write(" Please settle bill at counter. \n\n\n\n".toByteArray(Charsets.US_ASCII))
+        } else {
+            stream.write("Thank you for your purchase!\n".toByteArray(Charsets.US_ASCII))
+            stream.write("Please come again.\n\n\n\n".toByteArray(Charsets.US_ASCII))
+        }
+        stream.write(escCutPaper)
+
+        return stream.toByteArray()
     }
 
     private fun buildTestReceiptBytes(printerName: String): ByteArray {

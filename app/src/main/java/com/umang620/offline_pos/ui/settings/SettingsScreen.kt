@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,11 +23,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Usb
+import com.umang620.offline_pos.utils.CsvExportHelper
 import com.umang620.offline_pos.utils.PrinterType
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -66,9 +70,12 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
     val managerPin by viewModel.managerPin.collectAsState()
     val isPinRequired by viewModel.isPinRequired.collectAsState()
     val isVoidPinRequired by viewModel.isVoidPinRequired.collectAsState()
+    val isAutoPrintEnabled by viewModel.isAutoPrintEnabled.collectAsState()
     val defaultCashFloat by viewModel.defaultCashFloat.collectAsState()
     val selectedPrinterName by viewModel.selectedPrinterName.collectAsState()
     val pairedPrinters by viewModel.pairedPrinters.collectAsState()
+    val allOrders by viewModel.allOrdersWithItems?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList()) }
+    val allExpenses by viewModel.allExpenses?.collectAsState(initial = emptyList()) ?: remember { mutableStateOf(emptyList()) }
 
     var showPinDialog by remember { mutableStateOf(false) }
     var showVerifyPinDialog by remember { mutableStateOf(false) }
@@ -323,6 +330,37 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Select Paired Printer", fontWeight = FontWeight.Bold)
                 }
+
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Auto-Print Receipt on Checkout",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Automatically sends receipt to printer when checkout completes",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Switch(
+                        checked = isAutoPrintEnabled,
+                        onCheckedChange = { checked ->
+                            viewModel.setAutoPrintEnabled(checked)
+                        }
+                    )
+                }
             }
         }
 
@@ -396,6 +434,112 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Text("Edit Default Float", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 4. Data Export (CSV / Excel) Card
+        GlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+            elevation = 2.dp
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FileDownload,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Master Data Export (All-Time CSV)",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "Exports complete all-time sales and expense history for Excel/Sheets",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            val result = CsvExportHelper.exportSalesToCsv(context, allOrders, "All Time Records")
+                            if (result.isSuccess) {
+                                Toast.makeText(context, result.getOrNull(), Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, result.exceptionOrNull()?.message, Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Export All Sales CSV", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            val result = CsvExportHelper.exportExpensesToCsv(context, allExpenses, "All Time Records")
+                            if (result.isSuccess) {
+                                Toast.makeText(context, result.getOrNull(), Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, result.exceptionOrNull()?.message, Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Export All Expenses CSV", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    }
                 }
             }
         }

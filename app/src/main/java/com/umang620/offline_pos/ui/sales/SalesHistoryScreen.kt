@@ -30,7 +30,13 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.runtime.rememberCoroutineScope
+import com.umang620.offline_pos.utils.BluetoothPrinterHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -510,6 +516,8 @@ fun OrderCard(
     onVoid: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var showDetailsDialog by remember { mutableStateOf(false) }
     val order = orderWithItems.order
     val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy • hh:mm a", Locale.getDefault()) }
@@ -743,6 +751,39 @@ fun OrderCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                }
+            }
+
+            if (!isVoided) {
+                Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch(Dispatchers.IO) {
+                                val result = BluetoothPrinterHelper.printSalesReceipt(context, orderWithItems)
+                                withContext(Dispatchers.Main) {
+                                    if (result.isSuccess) {
+                                        Toast.makeText(context, result.getOrNull(), Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        val errorMsg = result.exceptionOrNull()?.message ?: "Print failed"
+                                        Toast.makeText(context, "ERROR: $errorMsg", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.Print, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Print Receipt", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

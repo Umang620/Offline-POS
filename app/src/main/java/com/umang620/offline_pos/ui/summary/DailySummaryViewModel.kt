@@ -3,6 +3,7 @@ package com.umang620.offline_pos.ui.summary
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.umang620.offline_pos.data.local.ExpenseEntity
 import com.umang620.offline_pos.data.local.OrderWithItems
 import com.umang620.offline_pos.data.local.ProductSalesSummary
 import com.umang620.offline_pos.data.repository.PosRepository
@@ -324,6 +325,28 @@ class DailySummaryViewModel(private val repository: PosRepository) : ViewModel()
         allOrders.filter {
             it.order.status == "VOIDED" && it.order.timestamp in start..end
         }.sortedByDescending { it.order.voidedTimestamp ?: it.order.timestamp }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val ordersInPeriod: StateFlow<List<OrderWithItems>> = combine(
+        activeDateRange,
+        repository.allOrdersWithItems
+    ) { (start, end), allOrders ->
+        allOrders.filter { it.order.timestamp in start..end }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val expensesInPeriod: StateFlow<List<ExpenseEntity>> = combine(
+        activeDateRange,
+        repository.allExpenses
+    ) { (start, end), allExpenses ->
+        allExpenses.filter { it.timestamp in start..end }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

@@ -1,132 +1,83 @@
-# 📱 Offline POS (Point of Sale) — Version 2.0.0
+# Offline POS (Point of Sale) — Version 2.0.0
 
-A **100% offline**, native Android Point of Sale (POS), Inventory, and Financial Management application built for cafes, coffee shops, food stands, and retail businesses. Developed using modern Android technologies: **Kotlin**, **Jetpack Compose**, **Material 3**, **Room SQLite Database**, and **MVVM Architecture**.
+A **100% offline**, native Android Point of Sale (POS), Inventory, and Financial Management application engineered for cafes, restaurants, food stands, and retail businesses. Built using modern Android architecture: **Kotlin**, **Jetpack Compose**, **Material 3**, **Room SQLite Database**, and **MVVM Architecture**.
 
 ---
 
-## ✨ Version 2.0.0 Features & Highlights
+## System Capabilities
 
-### 🖨️ 1. Dual Thermal Printer Engine (USB Cable & Bluetooth)
-* **Dual Connection Support**: Supports ESC/POS 58mm and 80mm thermal receipt printers over **Bluetooth SPP** and **USB OTG Direct Cable**.
-* **Printer Device Selector & Auto-Connect**: Select your active Bluetooth or USB printer once in Settings for automatic connection on every print.
-* **Real Connection Error Detection**: Real-time error handling on Test Print and checkout receipts:
-  * ❌ *Bluetooth OFF / Unreachable*
-  * ❌ *USB Cable Disconnected / Permission Denied*
-  * ❌ *No Printer Selected*
-  * ✅ *Printed Successfully*
-* **Step-by-Step Printer Help Guide**: Built-in 3-step setup guide with a **"Test Print"** action button.
+### Point of Sale & Order Register
+* **Adaptive Catalog Grid**: Dynamically scales columns for phones (2–3 columns) and tablets/foldables (3–6 columns).
+* **Search & Categorization**: Real-time product search by name/SKU and instant category filtering.
+* **Interactive Cart Management**: Slide-up bottom sheet with real-time item quantity controls, subtotals, and total calculations.
+* **Flexible Checkout Options**:
+  * **Cash Payment**: Live change calculator (`Change = Cash Received - Total`) with quick-amount chips.
+  * **GCash Digital Payment**: Record GCash sales with reference number tracking.
+  * **Unpaid Charge Sales**: Save transactions as `UNPAID` for credit/charge accounts to be settled later.
 
-### 🔒 2. Manager PIN Security & Anti-Cheating Controls
-* **4-Digit Manager PIN**: Protects sensitive store operations:
-  * **Permanent Order Deletion**: Requires Manager PIN to permanently delete transactions.
-  * **Cash Float Modifications**: Requires Manager PIN to alter default starting cash float.
-  * **Security Settings Toggles**: Requires Manager PIN to change security toggle switches.
-* **Configurable Void Security**: Toggle switch in Settings (*`Require PIN for Void Orders` [ ON / OFF ]*) so voiding can be fast for cashiers or locked for security.
-* **Current PIN & Confirmation Validation**: Changing an existing PIN requires entering the **Current PIN** and **confirming the New 4-digit PIN**.
+### Dual Thermal Receipt Printing Engine
+* **Universal ESC/POS Protocol**: Formats and transmits thermal receipts over **USB OTG Cable** and **Bluetooth SPP**.
+* **Device Selector & Auto-Connect**: Configure your active printer once in Settings for automatic connection.
+* **Non-Blocking Background Printing**: Receipt byte transmission executes asynchronously on a background thread (`Dispatchers.IO`), keeping the POS interface responsive without delays.
+* **Configurable Auto-Print**: Toggle `Auto-Print Receipt on Checkout [ON/OFF]` in Settings.
+* **Dynamic Receipt Layouts**:
+  * **Official Receipt (PAID)**: Printed for completed cash/GCash sales and settled unpaid bills.
+  * **Charge Slip (UNPAID)**: Printed when saving new unpaid orders with customer/table name and pending balance.
+  * **Updated Charge Slip**: Printed when modifying items in an existing unpaid order.
+* **On-Demand Manual Reprinting**: Reprint buttons inside Sales History and Unpaid Order cards.
 
-### 💵 3. Shift Cash Drawer Reconciliation
-* **End-of-Shift Reconciliation**: Tap **"Reconcile Cash Drawer"** on the Summary screen to enter physical counted cash.
-* **Automatic Expected Cash Calculation**:
-  $$\text{Expected Cash} = \text{Starting Float} + \text{Cash Sales} - \text{Cash Expenses}$$
-* **Instant Audit Result**: Automatically detects and highlights:
-  * ✅ **Exact Match**
-  * 🔴 **Shortage** (*e.g., −₱50.00*)
-  * 🟠 **Overage** (*e.g., +₱50.00*)
-* **Manager PIN Protection**: Prompts for Manager PIN if staff attempts to override the starting cash float during reconciliation.
+### Hardware & Printer Compatibility
+* **Command Protocol**: ESC/POS (Epson Standard Code for POS).
+* **Interfaces**: Wireless Bluetooth SPP and USB OTG Direct Cable.
+* **Media Sizes**: Standard 58mm (2-inch) and 80mm (3-inch) thermal receipt paper.
+* **Hardware Brands**: Xprinter, Goojprt, MUNBYN, Sunmi, POS-58, ZJ-5809, Netum, Epson, Rongta, Milestone, and generic ESC/POS mini thermal printers.
 
-### 📊 4. 1-Tap Voided Audit Modal & Summary Badge
-* **Voided Audit Row**: Displays a compact audit badge on the Financial Summary card:  
-  `"Voided (Audit): X orders (₱Y.YY) • Excluded from sales"`
-* **1-Tap Itemized Audit Modal**: Tap the Voided Audit row to inspect full void details:
-  * 🕒 **Voided Timestamp** (*e.g., Today at 2:15 PM*)
-  * 📦 **Itemized Voided Products & Quantities** (*e.g., 2x Cheeseburger, 1x Iced Coffee*)
-  * 💳 **Payment Method** (*Cash / GCash*)
+### Manager Security & Fraud Prevention
+* **4-Digit Manager PIN**: Restricts sensitive operations:
+  * Permanent transaction deletion
+  * Default starting cash float modifications
+  * Security settings toggle switches
+* **PIN Modification Security**: Changing an existing PIN requires entering the **Current PIN** and **confirming the New 4-digit PIN**.
+* **Configurable Void Security**: Optional toggle switch (*Require PIN for Void Orders*) to allow cashier speed or enforce manager authorization.
 
-### 📈 5. Live Top Header Revenue & Net Profit Dashboard
-* **Today's Live Revenue Badge**: Top-right header displaying live **Today's Revenue** (`Today: ₱X.XX`), bound strictly to today's date (`System.currentTimeMillis()`).
-* **Net Profit / Loss Banner**: Prominent green/red calculation banner (`Net Profit = Sales − Expenses`) inside the Summary screen.
-* **Period Filter Selector**: Quickly toggle report periods: **Today**, **Yesterday**, **This Week**, **Last Week**, **This Month**, **Last Month**, **This Year**, or **Custom Date Range**.
+### Shift Cash Drawer Reconciliation
+* **End-of-Shift Reconciliation**: Reconcile physical cash drawer contents at shift close.
+* **Calculated Expected Cash**:
+  $$\text{Expected Cash} = \text{Starting Float} + \text{Cash Sales Only} - \text{Cash Expenses Only}$$
+* **Audit Detection**: Automatically detects and flags **Exact Match**, **Shortage**, or **Overage**.
+* **Override Security**: Requires Manager PIN authorization to modify the starting cash float.
 
-### 🔎 6. Sales History Search & Filter Chips
-* **Real-time Search Bar**: Search transactions by receipt #, order ID, product name, or payment method.
-* **Filter Chips**: Quick filter tabs (*`All`, `Cash`, `GCash`, `Voided`*) with horizontal scroll support on small screens.
+### Financial Reporting & CSV Export
+* **Live Revenue Badge**: Top header displays real-time **Today's Revenue** (`Today: ₱X.XX`) bound to current calendar date (`System.currentTimeMillis()`).
+* **Net Profit Dashboard**: Executive calculation banner (`Net Profit = Sales − Expenses`) inside Summary.
+* **1-Tap Voided Audit Modal**: Tappable audit badge in Summary displaying itemized voided order lists, product quantities, and timestamps.
+* **Direct Downloads CSV Export**: Exports sales and expense reports directly to the device's public `Downloads/` directory for **Microsoft Excel** or **Google Sheets**. Supports custom date ranges (*e.g., Nov 1 to Nov 15*).
 
-### 🛒 7. Register & Point of Sale
-* **Adaptive Catalog Grid**: Adapts to phone screens (2–3 columns) and tablet/foldable screens (3–6 columns) using Compose `GridCells.Adaptive`.
-* **Live Product Search & Category Chips**: Instant search by product name or SKU, and category filter chips.
-* **Interactive Cart**: Slide-up bottom sheet with instant `+` / `-` quantity controls, subtotals, and total amount calculation.
-* **Payment Methods**:
-  * **Cash Payment**: Live change calculator (`Change = Cash Received - Total Amount`) with quick-cash amount chips.
-  * **GCash Payment**: Record GCash sales with optional reference number logging.
-  * **Save as UNPAID**: Save order as `UNPAID` for credit/charge sales to be settled later.
-
-### 📋 8. Unpaid Orders System
-* **Outstanding Balance Summary**: Live calculation of total pending unpaid balance.
-* **Itemized Receipt Preview**: Expand any unpaid order card to view full item breakdown (`quantity × product price = subtotal`).
-* **Settlement Modal**: Easily settle unpaid orders via Cash (with change calculator) or GCash (with reference number).
-
-### 📦 9. Inventory & Raw Materials Management
-* **Products & Raw Materials**: Manage sellable products (shown in Register) and raw materials (inventory tracking only).
+### Inventory & Expense Management
+* **Products & Raw Materials**: Track sellable catalog items and raw inventory materials.
 * **Measurement Units**: Support for units (`pcs`, `kg`, `g`, `L`, `mL`, `box`).
-* **Low Stock Warnings**: Visual low stock indicators for items with `<= 5` quantity.
+* **Low-Stock Alerts**: Visual warning indicators for items with `<= 5` quantity.
+* **Categorized Expense Tracker**: Log business expenses under presets (*Supplies*, *Ingredients*, *Transportation*, *Electricity*, *Equipment*, *Other*).
 
-### 🎨 10. Adaptive UI, Highlights & Dark Mode Support
-* **Highlighted Outlined Text Fields**: Input fields feature bold primary outlines, soft tinted background fills, and `₱` currency indicators.
-* **Dark / Light Mode**: Built-in dark theme toggle with high-contrast, theme-aware colors across all cards, text labels, and badges.
-* **Edge-to-Edge & System Bar Protection**: Protected layout insets (`WindowInsets.statusBars`) ensuring zero UI overlapping with camera punch-holes, status bars, or gesture navigation bars on all Android phone and tablet screens.
+### Adaptive UI & Design Architecture
+* **High-Contrast Text Fields**: Outlined input fields featuring primary borders, soft tinted background fills, and currency indicators.
+* **Dark / Light Theme**: Built-in theme toggle with high-contrast, theme-aware styling across all components.
+* **Edge-to-Edge Protection**: Layout insets (`WindowInsets.statusBars`) prevent UI overlapping with notches, status bars, or gesture navigation bars across all phone and tablet form factors.
 
 ---
 
-## 🛠️ Tech Stack
+## Technical Stack
 
 * **Language**: [Kotlin](https://kotlinlang.org/)
 * **UI Framework**: [Jetpack Compose](https://developer.android.com/jetpack/compose) + [Material 3](https://m3.material.io/)
 * **Architecture**: MVVM (Model-View-ViewModel) + Repository Pattern
 * **Database**: [Room SQLite Database](https://developer.android.com/training/data-storage/room)
 * **Concurrency**: Kotlin Coroutines, `StateFlow`, and `SharedFlow`
-* **Connectivity**: Android Bluetooth SPP & USB OTG Direct Hardware Transfer
-* **Icons**: Material AutoMirrored & Extended Icons
+* **Hardware Connectivity**: Android Bluetooth SPP & USB OTG Direct Transfer
 
 ---
 
-## 📂 Project Structure
-
-```
-com.umang620.offline_pos/
-├── data/
-│   ├── local/
-│   │   ├── ProductEntity.kt        # Room Product Entity (Products & Raw Materials)
-│   │   ├── OrderEntity.kt          # Room Order Entity
-│   │   ├── OrderItemEntity.kt      # Room Order Item Entity
-│   │   ├── ExpenseEntity.kt        # Room Expense Entity
-│   │   ├── OrderWithItems.kt       # Relation Data Model
-│   │   ├── ProductDao.kt           # Product Database DAO
-│   │   ├── OrderDao.kt             # Order Database DAO
-│   │   ├── ExpenseDao.kt           # Expense Database DAO
-│   │   └── PosDatabase.kt          # Room Database Instance
-│   └── repository/
-│       └── PosRepository.kt        # Unified POS Repository
-├── domain/
-│   └── model/
-│       └── CartItem.kt             # Active Cart Item Model
-├── utils/
-│   ├── FormatUtils.kt              # Currency Formatting Utility
-│   └── BluetoothPrinterHelper.kt   # Dual Bluetooth & USB Thermal ESC/POS Engine
-├── ui/
-│   ├── register/                   # POS Register & Cart UI
-│   ├── unpaid/                     # Unpaid Orders UI
-│   ├── sales/                      # Sales History & Void UI
-│   ├── expenses/                   # Expense Tracker UI
-│   ├── summary/                    # Daily Summary Dashboard & Cash Reconciliation UI
-│   ├── inventory/                  # Product & Raw Material Management UI
-│   ├── settings/                   # Settings, Manager PIN & Printer Setup UI
-│   └── theme/                      # Material 3 Color, Type & Theme
-└── MainActivity.kt                 # Animated Splash Screen, Top Header & Navigation
-```
-
----
-
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 * **Android Studio**: Ladybug (2024.2.1) or newer
@@ -139,20 +90,20 @@ com.umang620.offline_pos/
    ```bash
    git clone https://github.com/your-username/Offline-POS.git
    ```
-2. Open **Android Studio** and select **Open**, choosing the `Offline-POS` folder.
-3. Allow Gradle to finish syncing project dependencies.
-4. Connect an Android device (with USB Debugging enabled) or start an Android Emulator.
+2. Open **Android Studio** and select **Open**, choosing the `Offline-POS` directory.
+3. Allow Gradle to sync project dependencies.
+4. Connect an Android device or start an emulator.
 5. Click **Run (►)** or press `Shift + F10`.
 
 ---
 
-## 🔒 Offline & Data Security
+## Security & Offline Architecture
 
-* **100% Offline**: Requires no internet connection, cloud server, or external API dependencies.
-* **Local Storage**: All product catalog items, transaction records, expenses, and manager security settings are persisted locally in the device's Room SQLite database and encrypted SharedPreferences.
-* **Data Migration**: Upgrading version codes preserves all existing saved products, orders, and expenses.
+* **100% Offline Operation**: Functions without internet connectivity, cloud servers, or third-party APIs.
+* **Local Persistence**: All catalog items, order records, expenses, and security PINs are persisted locally in the Room SQLite database and encrypted SharedPreferences.
+* **Data Preservation**: Application version upgrades preserve all existing user data.
 
 ---
 
-## 📄 License
+## License
 This project is open-source and available under the [MIT License](LICENSE).
