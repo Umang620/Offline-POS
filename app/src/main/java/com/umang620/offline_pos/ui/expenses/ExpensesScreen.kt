@@ -273,7 +273,9 @@ fun ExpensesScreen(viewModel: ExpensesViewModel) {
 
             if (expenses.isEmpty()) {
                 Box(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -284,6 +286,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel) {
                 }
             } else {
                 LazyColumn(
+                    modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     contentPadding = PaddingValues(bottom = 80.dp)
                 ) {

@@ -235,6 +235,14 @@ class DailySummaryViewModel(private val repository: PosRepository) : ViewModel()
         initialValue = 0.0
     )
 
+    val allTimeNetProfit: StateFlow<Double> = combine(allTimeTotalSales, allTimeTotalExpenses) { sales, expenses ->
+        sales - expenses
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = 0.0
+    )
+
     val allTimeCashExpenses: StateFlow<Double> = repository.cashExpensesTotal.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),

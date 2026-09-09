@@ -116,6 +116,8 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
     val expensesInPeriod by viewModel.expensesInPeriod.collectAsState()
 
     val allTimeTotalSales by viewModel.allTimeTotalSales.collectAsState()
+    val allTimeTotalExpenses by viewModel.allTimeTotalExpenses.collectAsState()
+    val allTimeNetProfit by viewModel.allTimeNetProfit.collectAsState()
     val allTimeProductsSold by viewModel.allTimeProductsSold.collectAsState()
 
     var showStartPicker by remember { mutableStateOf(false) }
@@ -183,7 +185,7 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        // All-Time Summary & All-Time Products Sold Overview Header
+        // All-Time Summary Header (Revenue, Net Profit, Expenses, Products Sold)
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(18.dp),
@@ -192,37 +194,90 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
             elevation = 3.dp
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "All-Time Financial Overview",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 4.dp)
+                    ) {
                         Text(
-                            text = "All-Time Total Revenue",
+                            text = "Revenue",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = formatMoney(allTimeTotalSales),
-                            style = MaterialTheme.typography.headlineMedium,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
-                    Box(
+
+                    Column(
                         modifier = Modifier
-                            .size(44.dp)
-                            .background(Color.White.copy(alpha = 0.9f), shape = RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
+                            .weight(1f)
+                            .padding(horizontal = 2.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ShowChart,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
+                        Text(
+                            text = "Expenses",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = formatMoney(allTimeTotalExpenses),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = DangerRed,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 4.dp),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        Text(
+                            text = "Net Profit",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = formatMoney(allTimeNetProfit),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (allTimeNetProfit >= 0) SuccessGreen else DangerRed,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }

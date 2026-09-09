@@ -80,6 +80,7 @@ import com.umang620.offline_pos.ui.theme.DangerRed
 import com.umang620.offline_pos.ui.theme.GlassCard
 import com.umang620.offline_pos.ui.theme.SecondaryText
 import com.umang620.offline_pos.ui.theme.SuccessGreen
+import com.umang620.offline_pos.ui.theme.WarningOrange
 import com.umang620.offline_pos.utils.formatMoney
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -293,6 +294,7 @@ fun SalesHistoryScreen(viewModel: SalesViewModel) {
             }
         } else {
             LazyColumn(
+                modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
@@ -470,7 +472,8 @@ fun KpiCard(
         modifier = modifier,
         onClick = { showDialog = true },
         shape = RoundedCornerShape(16.dp),
-        backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+        borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
         elevation = 2.dp
     ) {
         Column(
@@ -526,6 +529,11 @@ fun OrderCard(
     val isUnpaid = order.status == "UNPAID"
     val orderTitle = if (order.orderNumber.isNotBlank()) order.orderNumber else "Order #${order.id}"
 
+    val itemsSummary = remember(orderWithItems.items) {
+        if (orderWithItems.items.isEmpty()) "No items"
+        else orderWithItems.items.joinToString(", ") { "${it.quantity}x ${it.productName}" }
+    }
+
     if (showDetailsDialog) {
         AlertDialog(
             onDismissRequest = { showDetailsDialog = false },
@@ -549,17 +557,17 @@ fun OrderCard(
                         style = MaterialTheme.typography.bodyLarge, 
                         color = when {
                             isVoided -> SecondaryText
-                            isUnpaid -> Color(0xFFB45309)
+                            isUnpaid -> WarningOrange
                             else -> SuccessGreen
                         },
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = "Date: $formattedDate", style = MaterialTheme.typography.bodyLarge)
+                    Text(text = "Date: $formattedDate", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = "Items: ${order.totalItems}", style = MaterialTheme.typography.bodyLarge)
+                    Text(text = "Items Count: ${order.totalItems}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = "Payment Method: ${order.paymentMethod}", style = MaterialTheme.typography.bodyLarge)
+                    Text(text = "Payment Method: ${order.paymentMethod}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "Total Amount: ${formatMoney(order.totalAmount)}", 
@@ -570,12 +578,12 @@ fun OrderCard(
 
                     if (order.cashReceived != null && order.changeAmount != null) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Cash Received: ${formatMoney(order.cashReceived)}", style = MaterialTheme.typography.bodyMedium)
-                        Text(text = "Change: ${formatMoney(order.changeAmount)}", style = MaterialTheme.typography.bodyMedium)
+                        Text(text = "Cash Received: ${formatMoney(order.cashReceived)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text(text = "Change: ${formatMoney(order.changeAmount)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                     }
                     if (!order.gcashRefNumber.isNullOrBlank()) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "GCash Ref No: ${order.gcashRefNumber}", style = MaterialTheme.typography.bodyMedium)
+                        Text(text = "GCash Ref No: ${order.gcashRefNumber}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -599,11 +607,13 @@ fun OrderCard(
                             Text(
                                 text = "${item.quantity}x ${item.productName}",
                                 style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f)
                             )
                             Text(
                                 text = formatMoney(item.subtotal),
                                 style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Medium
                             )
                         }
@@ -646,14 +656,14 @@ fun OrderCard(
         onClick = { showDetailsDialog = true },
         shape = RoundedCornerShape(16.dp),
         backgroundColor = when {
-            isVoided -> Color(0xFFF1F5F9).copy(alpha = 0.85f)
-            isUnpaid -> Color(0xFFFEF3C7).copy(alpha = 0.85f)
-            else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+            isVoided -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
+            isUnpaid -> WarningOrange.copy(alpha = 0.12f)
+            else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
         },
         borderColor = when {
-            isVoided -> Color(0xFFCBD5E1)
-            isUnpaid -> Color(0xFFFDE68A)
-            else -> Color.White.copy(alpha = 0.85f)
+            isVoided -> MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+            isUnpaid -> WarningOrange.copy(alpha = 0.5f)
+            else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.35f)
         },
         elevation = 2.dp
     ) {
@@ -672,7 +682,7 @@ fun OrderCard(
                         contentDescription = null,
                         tint = when {
                             isVoided -> SecondaryText
-                            isUnpaid -> Color(0xFFB45309)
+                            isUnpaid -> WarningOrange
                             else -> MaterialTheme.colorScheme.primary
                         },
                         modifier = Modifier.size(24.dp)
@@ -688,7 +698,7 @@ fun OrderCard(
                                 text = orderTitle,
                                 fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.titleMedium,
-                                color = if (isUnpaid) Color(0xFF451A03) else MaterialTheme.colorScheme.onSurface,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.weight(1f, fill = false),
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
@@ -699,8 +709,8 @@ fun OrderCard(
                                 modifier = Modifier
                                     .background(
                                         when {
-                                            isVoided -> Color(0xFFE2E8F0)
-                                            isUnpaid -> Color(0xFFFDE68A)
+                                            isVoided -> MaterialTheme.colorScheme.surfaceVariant
+                                            isUnpaid -> WarningOrange.copy(alpha = 0.2f)
                                             else -> Color(0xFFDCFCE7)
                                         },
                                         shape = RoundedCornerShape(6.dp)
@@ -712,7 +722,7 @@ fun OrderCard(
                                     style = MaterialTheme.typography.labelSmall,
                                     color = when {
                                         isVoided -> SecondaryText
-                                        isUnpaid -> Color(0xFF78350F)
+                                        isUnpaid -> WarningOrange
                                         else -> SuccessGreen
                                     },
                                     fontWeight = FontWeight.Bold
@@ -723,7 +733,7 @@ fun OrderCard(
                         Text(
                             text = formattedDate,
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (isUnpaid) Color(0xFF78350F) else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -737,7 +747,7 @@ fun OrderCard(
                         style = MaterialTheme.typography.titleLarge,
                         color = when {
                             isVoided -> SecondaryText
-                            isUnpaid -> Color(0xFF451A03)
+                            isUnpaid -> WarningOrange
                             else -> MaterialTheme.colorScheme.onSurface
                         },
                         textDecoration = if (isVoided) TextDecoration.LineThrough else TextDecoration.None,
@@ -745,18 +755,29 @@ fun OrderCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "${order.paymentMethod} • ${order.totalItems} item${if (order.totalItems > 1) "s" else ""}",
+                        text = order.paymentMethod,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (isUnpaid) Color(0xFF78350F) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
 
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Items (${order.totalItems}): $itemsSummary",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
             if (!isVoided) {
-                Spacer(modifier = Modifier.height(10.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Row(

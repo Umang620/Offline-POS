@@ -40,6 +40,9 @@ import com.umang620.offline_pos.utils.BluetoothPrinterHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -90,6 +93,7 @@ fun UnpaidOrdersScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val searchQuery by viewModel.searchQuery.collectAsState()
     val unpaidOrders by viewModel.unpaidOrders.collectAsState()
     val unpaidTotal by viewModel.unpaidTotal.collectAsState()
     val selectedDate by viewModel.selectedDate.collectAsState()
@@ -182,6 +186,42 @@ fun UnpaidOrdersScreen(
             }
         }
 
+        // Search Bar for Unpaid Orders
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { viewModel.updateSearchQuery(it) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            placeholder = { Text("Search unpaid orders by customer name, ID, or item...") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Clear search",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface
+            )
+        )
+
         if (showSummaryDialog) {
             AlertDialog(
                 onDismissRequest = { showSummaryDialog = false },
@@ -202,12 +242,13 @@ fun UnpaidOrdersScreen(
                             text = formatMoney(unpaidTotal),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF92400E)
+                            color = WarningOrange
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "Date: $dateLabel",
-                            style = MaterialTheme.typography.bodyLarge
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
@@ -224,8 +265,8 @@ fun UnpaidOrdersScreen(
             modifier = Modifier.fillMaxWidth(),
             onClick = { showSummaryDialog = true },
             shape = RoundedCornerShape(16.dp),
-            backgroundColor = Color(0xFFFEF3C7).copy(alpha = 0.85f),
-            borderColor = Color(0xFFFDE68A),
+            backgroundColor = WarningOrange.copy(alpha = 0.15f),
+            borderColor = WarningOrange.copy(alpha = 0.4f),
             elevation = 3.dp
         ) {
             Row(
@@ -239,14 +280,15 @@ fun UnpaidOrdersScreen(
                     Text(
                         text = if (isToday) "Unpaid Total Today" else "Unpaid Total for Selected Date",
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFF92400E)
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = formatMoney(unpaidTotal),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF92400E)
+                        color = WarningOrange
                     )
                 }
                 Icon(
@@ -275,6 +317,7 @@ fun UnpaidOrdersScreen(
             }
         } else {
             LazyColumn(
+                modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(bottom = 16.dp)
             ) {
@@ -361,13 +404,13 @@ fun UnpaidOrderCard(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text(text = "Order Name/ID: $orderTitle", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                    Text(text = "Order Name/ID: $orderTitle", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = "Status: UNPAID", style = MaterialTheme.typography.bodyLarge, color = Color(0xFFB45309), fontWeight = FontWeight.Bold)
+                    Text(text = "Status: UNPAID", style = MaterialTheme.typography.bodyLarge, color = WarningOrange, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = "Date: $formattedDate", style = MaterialTheme.typography.bodyLarge)
+                    Text(text = "Date: $formattedDate", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = "Items: ${order.totalItems}", style = MaterialTheme.typography.bodyLarge)
+                    Text(text = "Items: ${order.totalItems}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "Total Amount: ${formatMoney(order.totalAmount)}", 
@@ -442,11 +485,17 @@ fun UnpaidOrderCard(
         }
     }
 
+    val itemsSummary = remember(orderWithItems.items) {
+        if (orderWithItems.items.isEmpty()) "No items"
+        else orderWithItems.items.joinToString(", ") { "${it.quantity}x ${it.productName}" }
+    }
+
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = { showDetailsDialog = true },
         shape = RoundedCornerShape(16.dp),
-        backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
+        borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f),
         elevation = 2.dp
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -472,13 +521,13 @@ fun UnpaidOrderCard(
                         Spacer(modifier = Modifier.width(6.dp))
                         Box(
                             modifier = Modifier
-                                .background(Color(0xFFFEF3C7), shape = RoundedCornerShape(6.dp))
+                                .background(WarningOrange.copy(alpha = 0.18f), shape = RoundedCornerShape(6.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
                                 text = "UNPAID",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = Color(0xFFB45309),
+                                color = WarningOrange,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -491,11 +540,6 @@ fun UnpaidOrderCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Text(
-                        text = "${order.totalItems} item${if (order.totalItems > 1) "s" else ""}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
 
                 Column(horizontalAlignment = Alignment.End) {
@@ -507,54 +551,73 @@ fun UnpaidOrderCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        OutlinedButton(
-                            onClick = {
-                                scope.launch(Dispatchers.IO) {
-                                    val result = BluetoothPrinterHelper.printSalesReceipt(context, orderWithItems)
-                                    withContext(Dispatchers.Main) {
-                                        if (result.isSuccess) {
-                                            Toast.makeText(context, result.getOrNull(), Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            val errorMsg = result.exceptionOrNull()?.message ?: "Print failed"
-                                            Toast.makeText(context, "ERROR: $errorMsg", Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                }
-                            },
-                            shape = RoundedCornerShape(10.dp),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                        ) {
-                            Icon(Icons.Default.Print, contentDescription = "Print Slip", modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Print", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
+                }
+            }
 
-                        if (onEditClick != null) {
-                            OutlinedButton(
-                                onClick = onEditClick,
-                                shape = RoundedCornerShape(10.dp),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
-                            ) {
-                                Icon(Icons.Default.Edit, contentDescription = "Edit / Add Items", modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Edit", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Items (${order.totalItems}): $itemsSummary",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        scope.launch(Dispatchers.IO) {
+                            val result = BluetoothPrinterHelper.printSalesReceipt(context, orderWithItems)
+                            withContext(Dispatchers.Main) {
+                                if (result.isSuccess) {
+                                    Toast.makeText(context, result.getOrNull(), Toast.LENGTH_SHORT).show()
+                                } else {
+                                    val errorMsg = result.exceptionOrNull()?.message ?: "Print failed"
+                                    Toast.makeText(context, "ERROR: $errorMsg", Toast.LENGTH_LONG).show()
+                                }
                             }
                         }
-                        Button(
-                            onClick = onPayClick,
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
-                        ) {
-                            Icon(Icons.Default.Payment, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Settle", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        }
+                    },
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Print, contentDescription = "Print Slip", modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Print", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+
+                if (onEditClick != null) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    OutlinedButton(
+                        onClick = onEditClick,
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit / Add Items", modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Edit", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Button(
+                    onClick = onPayClick,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.Payment, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Settle", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
         }

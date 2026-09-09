@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -21,8 +22,15 @@ class UnpaidOrdersViewModel(private val repository: PosRepository) : ViewModel()
     private val _selectedDate = MutableStateFlow(getStartOfDay(System.currentTimeMillis()))
     val selectedDate: StateFlow<Long> = _selectedDate.asStateFlow()
 
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
     fun updateSelectedDate(timestamp: Long) {
         _selectedDate.value = getStartOfDay(timestamp)
+    }
+
+    fun updateSearchQuery(query: String) {
+        _searchQuery.value = query
     }
 
     suspend fun getOrderWithItemsById(orderId: Long): OrderWithItems? = repository.getOrderWithItemsById(orderId)
@@ -49,12 +57,23 @@ class UnpaidOrdersViewModel(private val repository: PosRepository) : ViewModel()
         }
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val unpaidOrders: StateFlow<List<OrderWithItems>> = _selectedDate.flatMapLatest { date ->
+    val unpaidOrders: StateFlow<List<OrderWithItems>> = combine(
+        _selectedDate,
+        _searchQuery,
+        repository.unpaidOrdersWithItems
+    ) { date, query, allUnpaid ->
         val start = getStartOfDay(date)
         val end = getEndOfDay(date)
-        repository.unpaidOrdersWithItems.map { list ->
-            list.filter { it.order.timestamp in start..end }
+        val q = query.trim().lowercase()
+        allUnpaid.filter { item ->
+            val inDateRange = item.order.timestamp in start..end
+            if (!inDateRange) return@filter false
+            if (q.isBlank()) return@filter true
+
+            val matchesOrderNumber = item.order.orderNumber.lowercase().contains(q)
+            val matchesOrderId = item.order.id.toString().contains(q)
+            val matchesItems = item.items.any { it.productName.lowercase().contains(q) }
+            matchesOrderNumber || matchesOrderId || matchesItems
         }
     }.stateIn(
         scope = viewModelScope,
