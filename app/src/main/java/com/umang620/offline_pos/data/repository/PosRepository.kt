@@ -1,5 +1,9 @@
 package com.umang620.offline_pos.data.repository
 
+import android.content.Context
+import android.content.Intent
+import android.os.Environment
+import androidx.core.content.FileProvider
 import com.umang620.offline_pos.data.local.ExpenseDao
 import com.umang620.offline_pos.data.local.ExpenseEntity
 import com.umang620.offline_pos.data.local.OrderDao
@@ -10,7 +14,10 @@ import com.umang620.offline_pos.data.local.ProductDao
 import com.umang620.offline_pos.data.local.ProductEntity
 import com.umang620.offline_pos.data.local.ProductSalesSummary
 import com.umang620.offline_pos.domain.model.CartItem
+import com.umang620.offline_pos.utils.JsonBackupHelper
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -230,5 +237,103 @@ class PosRepository(
 
     suspend fun deleteExpense(expense: ExpenseEntity) {
         expenseDao.deleteExpense(expense)
+    }
+
+    suspend fun exportJsonBackup(context: Context): Result<String> {
+        return try {
+            val products = productDao.getAllProducts().first()
+            val orders = orderDao.getAllOrdersWithItems().first()
+            val expenses = expenseDao.getAllExpenses().first()
+            val prefs = context.getSharedPreferences("pos_settings", Context.MODE_PRIVATE)
+
+            val jsonString = JsonBackupHelper.createJsonBackup(products, orders, expenses, prefs)
+            val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+            val fileName = "POS_Full_Backup_$timeStamp.json"
+
+            // Save to Downloads directory
+            try {
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                if (downloadsDir.exists() || downloadsDir.mkdirs()) {
+                    val downloadFile = File(downloadsDir, fileName)
+                    downloadFile.writeText(jsonString, Charsets.UTF_8)
+                }
+            } catch (_: Exception) {}
+
+            // Save to Cache directory for sharing
+            val cacheFile = File(context.cacheDir, fileName)
+            cacheFile.writeText(jsonString, Charsets.UTF_8)
+
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                cacheFile
+            )
+
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "application/json"
+                putExtra(Intent.EXTRA_SUBJECT, "Offline POS Full Data Backup ($fileName)")
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+
+            val chooser = Intent.createChooser(intent, "Share/Save POS Backup JSON")
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
+
+            Result.success("Exported to Downloads: $fileName")
+        } catch (e: Exception) {
+            Result.failure(Exception("Failed to export JSON backup: ${e.message}"))
+        }
+    }
+
+    suspend fun importJsonBackup(context: Context, jsonString: String, replaceExisting: Boolean): Result<String> {
+        return try {
+            val payload = JsonBackupHelper.parseJsonBackup(jsonString)
+
+            if (replaceExisting) {
+                expenseDao.deleteAllExpenses()
+                orderDao.deleteAllOrderItems()
+                orderDao.deleteAllOrders()
+                productDao.deleteAllProducts()
+            }
+
+            // Product ID Remapping
+            val productIdMap = mutableMapOf<Long, Long>()
+            payload.products.forEach { product ->
+                if (replaceExisting) {
+                    val id = productDao.insertProduct(product)
+                    productIdMap[product.id] = id
+                } else {
+                    insertOrMergeProduct(product)
+                }
+            }
+
+            // Orders & Order Items
+            payload.ordersWithItems.forEach { owi ->
+                val order = owi.order
+                val newOrderId = orderDao.insertOrder(order.copy(id = if (replaceExisting) order.id else 0))
+
+                val newItems = owi.items.map { item ->
+                    val remappedProductId = productIdMap[item.productId] ?: item.productId
+                    item.copy(id = 0, orderId = newOrderId, productId = remappedProductId)
+                }
+                orderDao.insertOrderItems(newItems)
+            }
+
+            // Expenses
+            payload.expenses.forEach { expense ->
+                expenseDao.insertExpense(expense.copy(id = if (replaceExisting) expense.id else 0))
+            }
+
+            // Settings
+            if (payload.settings.isNotEmpty()) {
+                JsonBackupHelper.applySettings(context, payload.settings)
+            }
+
+            val summary = "Imported ${payload.products.size} products, ${payload.ordersWithItems.size} orders, and ${payload.expenses.size} expenses!"
+            Result.success(summary)
+        } catch (e: Exception) {
+            Result.failure(Exception("Failed to import JSON backup: ${e.message}"))
+        }
     }
 }

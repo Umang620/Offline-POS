@@ -69,6 +69,12 @@ interface OrderDao {
     @Query("DELETE FROM orders WHERE id = :orderId")
     suspend fun deleteOrderById(orderId: Long): Int
 
+    @Query("DELETE FROM orders")
+    suspend fun deleteAllOrders(): Int
+
+    @Query("DELETE FROM order_items")
+    suspend fun deleteAllOrderItems(): Int
+
     @Query("SELECT COALESCE(SUM(totalAmount), 0.0) FROM orders WHERE status = 'PAID'")
     fun getTotalRevenue(): Flow<Double>
 

@@ -2,18 +2,23 @@ package com.umang620.offline_pos.ui.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import com.umang620.offline_pos.data.local.ExpenseEntity
 import com.umang620.offline_pos.data.local.OrderWithItems
 import com.umang620.offline_pos.data.repository.PosRepository
 import com.umang620.offline_pos.utils.BluetoothPrinterHelper
 import com.umang620.offline_pos.utils.PrinterDevice
 import com.umang620.offline_pos.utils.PrinterType
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SettingsViewModel(context: Context, private val repository: PosRepository? = null) : ViewModel() {
 
@@ -107,6 +112,61 @@ class SettingsViewModel(context: Context, private val repository: PosRepository?
     fun verifyPin(input: String): Boolean {
         if (!_isPinRequired.value || _managerPin.value.isBlank()) return true
         return _managerPin.value == input.trim()
+    }
+
+    fun exportJsonBackup(context: Context, onResult: (Result<String>) -> Unit) {
+        if (repository == null) {
+            onResult(Result.failure(Exception("Repository not initialized")))
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val res = repository.exportJsonBackup(context)
+            withContext(Dispatchers.Main) {
+                onResult(res)
+            }
+        }
+    }
+
+    fun importJsonBackup(context: Context, uri: Uri, replaceExisting: Boolean, onResult: (Result<String>) -> Unit) {
+        if (repository == null) {
+            onResult(Result.failure(Exception("Repository not initialized")))
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val jsonString = inputStream?.bufferedReader()?.use { it.readText() }
+                if (jsonString.isNullOrBlank()) {
+                    withContext(Dispatchers.Main) {
+                        onResult(Result.failure(Exception("Could not read backup JSON file")))
+                    }
+                    return@launch
+                }
+
+                val res = repository.importJsonBackup(context, jsonString, replaceExisting)
+                withContext(Dispatchers.Main) {
+                    refreshSettingsState()
+                    onResult(res)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    onResult(Result.failure(Exception("Import failed: ${e.message}")))
+                }
+            }
+        }
+    }
+
+    private fun refreshSettingsState() {
+        _managerPin.value = prefs.getString("manager_pin", "") ?: ""
+        _isPinRequired.value = prefs.getBoolean("is_pin_required", true)
+        _isVoidPinRequired.value = prefs.getBoolean("is_void_pin_required", false)
+        _isAutoPrintEnabled.value = prefs.getBoolean("is_auto_print_enabled", true)
+        _defaultCashFloat.value = prefs.getFloat("default_cash_float", 1000f).toDouble()
+        _selectedPrinterAddress.value = prefs.getString("selected_printer_address", "") ?: ""
+        _selectedPrinterName.value = prefs.getString("selected_printer_name", "No Printer Selected") ?: "No Printer Selected"
+        _selectedPrinterType.value = try {
+            PrinterType.valueOf(prefs.getString("selected_printer_type", PrinterType.BLUETOOTH.name) ?: PrinterType.BLUETOOTH.name)
+        } catch (_: Exception) { PrinterType.BLUETOOTH }
     }
 
     class Factory(private val context: Context, private val repository: PosRepository? = null) : ViewModelProvider.Factory {

@@ -40,6 +40,9 @@ interface ProductDao {
     @Delete
     suspend fun deleteProduct(product: ProductEntity): Int
 
+    @Query("DELETE FROM products")
+    suspend fun deleteAllProducts(): Int
+
     @Query("UPDATE products SET isActive = :isActive WHERE id = :productId")
     suspend fun setProductStatus(productId: Long, isActive: Boolean): Int
 

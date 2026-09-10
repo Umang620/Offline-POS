@@ -17,6 +17,9 @@ interface ExpenseDao {
     @Delete
     suspend fun deleteExpense(expense: ExpenseEntity): Int
 
+    @Query("DELETE FROM expenses")
+    suspend fun deleteAllExpenses(): Int
+
     @Query("SELECT COALESCE(SUM(amount), 0.0) FROM expenses")
     fun getTotalExpenses(): Flow<Double>
 

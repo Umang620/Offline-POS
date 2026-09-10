@@ -1,6 +1,9 @@
 package com.umang620.offline_pos.ui.settings
 
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +26,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Help
 import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
@@ -34,6 +39,7 @@ import com.umang620.offline_pos.utils.CsvExportHelper
 import com.umang620.offline_pos.utils.PrinterType
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -42,6 +48,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -83,6 +90,18 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
     var showPrinterHelpDialog by remember { mutableStateOf(false) }
     var showPrinterSelectDialog by remember { mutableStateOf(false) }
     var showFloatDialog by remember { mutableStateOf(false) }
+
+    var pendingImportUri by remember { mutableStateOf<Uri?>(null) }
+    var showImportConfirmDialog by remember { mutableStateOf(false) }
+
+    val jsonPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            pendingImportUri = uri
+            showImportConfirmDialog = true
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -440,7 +459,113 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 4. Data Export (CSV / Excel) Card
+        // 4. Complete System JSON Backup & Restore Card (Phone to Phone Transfer)
+        GlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+            elevation = 2.dp
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudUpload,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Full System JSON Backup & Transfer",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = "Export or import 100% of products, sales, expenses & settings across phones",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            viewModel.exportJsonBackup(context) { result ->
+                                if (result.isSuccess) {
+                                    Toast.makeText(context, result.getOrNull(), Toast.LENGTH_LONG).show()
+                                } else {
+                                    Toast.makeText(context, result.exceptionOrNull()?.message, Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CloudUpload,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Export Full JSON", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            try {
+                                jsonPickerLauncher.launch("application/json")
+                            } catch (_: Exception) {
+                                jsonPickerLauncher.launch("*/*")
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CloudDownload,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Import Full JSON", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 5. Data Export (CSV / Excel) Card
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -594,7 +719,10 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             onDismissRequest = { showPinDialog = false },
             title = { Text(if (isEditing) "Change Manager PIN" else "Set 4-Digit Manager PIN", fontWeight = FontWeight.Bold) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Text(
                         if (isEditing) "Enter current PIN, then enter and confirm your new 4-digit PIN:"
                         else "Create a 4-digit PIN for manager authorizations (Delete actions & Float edits):"
@@ -697,7 +825,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             },
             title = { Text("Manager Authorization", fontWeight = FontWeight.Bold) },
             text = {
-                Column {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     Text("Enter current 4-digit Manager PIN to change security setting:")
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
@@ -753,7 +881,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             onDismissRequest = { showFloatDialog = false },
             title = { Text("Edit Default Cash Float", fontWeight = FontWeight.Bold) },
             text = {
-                Column {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     Text("Set the default starting cash float placed in the drawer at the start of each day:")
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
@@ -819,7 +947,10 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 }
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Text("Follow these 3 steps to connect any Bluetooth or USB thermal printer offline:", style = MaterialTheme.typography.bodyMedium)
 
                     Card(
@@ -891,7 +1022,10 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 }
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text("Select your Bluetooth or USB thermal printer for automatic offline printing:", style = MaterialTheme.typography.bodySmall)
 
                     if (pairedPrinters.isEmpty()) {
@@ -953,6 +1087,130 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             confirmButton = {
                 TextButton(onClick = { showPrinterSelectDialog = false }) {
                     Text("Close")
+                }
+            }
+        )
+    }
+
+    // Confirm JSON System Import Dialog
+    if (showImportConfirmDialog && pendingImportUri != null) {
+        var replaceMode by remember { mutableStateOf(true) }
+
+        AlertDialog(
+            onDismissRequest = {
+                showImportConfirmDialog = false
+                pendingImportUri = null
+            },
+            title = {
+                Text("Confirm System Backup Import", fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        "You are about to import a JSON backup containing products, sales, expenses, and settings.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    Text("Choose import mode:", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+
+                    Card(
+                        onClick = { replaceMode = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (replaceMode) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = replaceMode,
+                                onClick = { replaceMode = true }
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                Text("Replace / Restore All Data", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                                Text("Wipes current local database and restores exact state from backup (Recommended for phone transfer)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+
+                    Card(
+                        onClick = { replaceMode = false },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (!replaceMode) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = !replaceMode,
+                                onClick = { replaceMode = false }
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                Text("Merge with Existing Data", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                                Text("Appends backup products, sales, and expenses into your existing database", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val uri = pendingImportUri
+                        if (uri != null) {
+                            val executeImport = {
+                                viewModel.importJsonBackup(context, uri, replaceMode) { result ->
+                                    if (result.isSuccess) {
+                                        Toast.makeText(context, result.getOrNull(), Toast.LENGTH_LONG).show()
+                                    } else {
+                                        Toast.makeText(context, result.exceptionOrNull()?.message ?: "Import failed", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                                showImportConfirmDialog = false
+                                pendingImportUri = null
+                            }
+
+                            if (isPinRequired && managerPin.isNotBlank()) {
+                                pendingToggleAction = { executeImport() }
+                                showImportConfirmDialog = false
+                                showVerifyPinDialog = true
+                            } else {
+                                executeImport()
+                            }
+                        }
+                    },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (replaceMode) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text(if (replaceMode) "Replace & Import" else "Merge & Import", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showImportConfirmDialog = false
+                        pendingImportUri = null
+                    }
+                ) {
+                    Text("Cancel")
                 }
             }
         )
