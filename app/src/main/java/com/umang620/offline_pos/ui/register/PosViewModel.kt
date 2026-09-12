@@ -164,10 +164,15 @@ class PosViewModel(private val repository: PosRepository, context: Context) : Vi
                     if (addOnsPart.isNotBlank()) {
                         val addOnTokens = addOnsPart.split(", ")
                         addOnTokens.forEach { token ->
-                            val addOnName = token.substringBefore(" (+₱").trim()
+                            val nameAndQty = token.substringBefore(" (+₱").trim()
+                            val qty = if (nameAndQty.contains(" x")) {
+                                nameAndQty.substringAfter(" x").toIntOrNull() ?: 1
+                            } else 1
+                            val addOnName = nameAndQty.substringBefore(" x").trim()
+
                             val foundAddOn = currentAddOns.find { it.name.equals(addOnName, ignoreCase = true) }
                             if (foundAddOn != null) {
-                                matchedAddOns.add(foundAddOn)
+                                repeat(qty) { matchedAddOns.add(foundAddOn) }
                             }
                         }
                     }

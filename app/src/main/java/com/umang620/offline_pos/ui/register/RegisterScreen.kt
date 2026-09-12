@@ -4,6 +4,7 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.material3.Checkbox
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import com.umang620.offline_pos.data.local.AddOnEntity
 import com.umang620.offline_pos.utils.BluetoothPrinterHelper
 import kotlinx.coroutines.Dispatchers
@@ -1300,10 +1301,18 @@ fun CheckoutDialog(
 fun SelectAddOnsDialog(
     product: ProductEntity,
     availableAddOns: List<AddOnEntity>,
+    initialSelectedAddOns: List<AddOnEntity> = emptyList(),
     onDismiss: () -> Unit,
     onConfirm: (selectedAddOns: List<AddOnEntity>, itemNote: String) -> Unit
 ) {
-    val selectedAddOns = remember { mutableStateListOf<AddOnEntity>() }
+    val addOnQuantityMap = remember {
+        val map = mutableStateMapOf<Long, Int>()
+        initialSelectedAddOns.groupBy { it.id }.forEach { (id, list) ->
+            map[id] = list.size
+        }
+        map
+    }
+
     var itemNote by remember { mutableStateOf("") }
     var addOnSearchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
@@ -1322,7 +1331,11 @@ fun SelectAddOnsDialog(
         }
     }
 
-    val addOnsTotal = selectedAddOns.sumOf { it.price }
+    val totalAddOnsCount = addOnQuantityMap.values.sum()
+    val addOnsTotal = addOnQuantityMap.entries.sumOf { (id, qty) ->
+        val price = availableAddOns.find { it.id == id }?.price ?: 0.0
+        price * qty
+    }
     val itemTotal = product.price + addOnsTotal
 
     Dialog(
@@ -1443,7 +1456,7 @@ fun SelectAddOnsDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Scrollable Add-Ons List
+                // Scrollable Add-Ons List with Quantity Stepper Controls
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -1464,21 +1477,19 @@ fun SelectAddOnsDialog(
                         }
                     } else {
                         filteredAddOns.forEach { addOn ->
-                            val isChecked = selectedAddOns.contains(addOn)
+                            val currentQty = addOnQuantityMap[addOn.id] ?: 0
+                            val isSelected = currentQty > 0
                             GlassCard(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp),
-                                onClick = {
-                                    if (isChecked) selectedAddOns.remove(addOn) else selectedAddOns.add(addOn)
-                                },
                                 shape = RoundedCornerShape(12.dp),
-                                backgroundColor = if (isChecked) {
+                                backgroundColor = if (isSelected) {
                                     MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                                 } else {
                                     MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
                                 },
-                                borderColor = if (isChecked) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                borderColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
                                 elevation = 1.dp
                             ) {
                                 Row(
@@ -1488,38 +1499,62 @@ fun SelectAddOnsDialog(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.weight(1f)
-                                    ) {
-                                        Checkbox(
-                                            checked = isChecked,
-                                            onCheckedChange = {
-                                                if (it) selectedAddOns.add(addOn) else selectedAddOns.remove(addOn)
-                                            }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = addOn.name,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
                                         )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Column {
-                                            Text(
-                                                text = addOn.name,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface
-                                            )
-                                            Text(
-                                                text = addOn.category,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
+                                        Text(
+                                            text = "${addOn.category}${if (addOn.price > 0) " • +${formatMoney(addOn.price)} each" else " • Free"}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                        )
                                     }
 
-                                    Text(
-                                        text = if (addOn.price > 0) "+${formatMoney(addOn.price)}" else "Free",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                                    // Stepper Controls (- qty +)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        if (currentQty > 0) {
+                                            IconButton(
+                                                onClick = {
+                                                    val newQty = currentQty - 1
+                                                    if (newQty <= 0) addOnQuantityMap.remove(addOn.id)
+                                                    else addOnQuantityMap[addOn.id] = newQty
+                                                },
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Icon(Icons.Default.Remove, contentDescription = "Decrease Add-On", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                                            }
+
+                                            Box(
+                                                modifier = Modifier
+                                                    .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
+                                                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(
+                                                    text = "$currentQty",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 13.sp,
+                                                    color = Color.White
+                                                )
+                                            }
+                                        }
+
+                                        IconButton(
+                                            onClick = {
+                                                addOnQuantityMap[addOn.id] = currentQty + 1
+                                            },
+                                            modifier = Modifier.size(32.dp)
+                                        ) {
+                                            Icon(Icons.Default.Add, contentDescription = "Increase Add-On", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1554,7 +1589,7 @@ fun SelectAddOnsDialog(
                 ) {
                     Column {
                         Text(
-                            text = if (selectedAddOns.isNotEmpty()) "${selectedAddOns.size} Add-On${if (selectedAddOns.size > 1) "s" else ""} selected" else "Base Price",
+                            text = if (totalAddOnsCount > 0) "$totalAddOnsCount Add-On${if (totalAddOnsCount > 1) "s" else ""} selected" else "Base Price",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1572,7 +1607,14 @@ fun SelectAddOnsDialog(
                         }
                         Button(
                             onClick = {
-                                onConfirm(selectedAddOns.toList(), itemNote)
+                                val selectedAddOnsList = mutableListOf<AddOnEntity>()
+                                addOnQuantityMap.forEach { (addOnId, qty) ->
+                                    val foundAddOn = availableAddOns.find { it.id == addOnId }
+                                    if (foundAddOn != null && qty > 0) {
+                                        repeat(qty) { selectedAddOnsList.add(foundAddOn) }
+                                    }
+                                }
+                                onConfirm(selectedAddOnsList, itemNote)
                                 onDismiss()
                             },
                             shape = RoundedCornerShape(12.dp),

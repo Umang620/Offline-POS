@@ -20,11 +20,16 @@ data class CartItem(
         get() {
             val parts = mutableListOf<String>()
             if (selectedAddOns.isNotEmpty()) {
-                val addOnsStr = selectedAddOns.joinToString(", ") { addon ->
-                    if (addon.price > 0) {
-                        "${addon.name} (+₱${String.format(Locale.US, "%.2f", addon.price)})"
+                val grouped = selectedAddOns.groupBy { it.id }
+                val addOnsStr = grouped.values.joinToString(", ") { list ->
+                    val addon = list.first()
+                    val count = list.size
+                    val totalAddOnPrice = addon.price * count
+                    val countSuffix = if (count > 1) " x$count" else ""
+                    if (totalAddOnPrice > 0) {
+                        "${addon.name}$countSuffix (+₱${String.format(Locale.US, "%.2f", totalAddOnPrice)})"
                     } else {
-                        addon.name
+                        "${addon.name}$countSuffix"
                     }
                 }
                 parts.add(addOnsStr)
