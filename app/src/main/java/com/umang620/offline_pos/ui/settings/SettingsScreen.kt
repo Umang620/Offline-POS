@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -31,9 +32,11 @@ import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Usb
 import com.umang620.offline_pos.utils.CsvExportHelper
 import com.umang620.offline_pos.utils.PrinterType
@@ -42,6 +45,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -103,6 +108,8 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
         }
     }
 
+    var selectedCategoryFilter by remember { mutableStateOf("ALL") }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -111,567 +118,516 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             .verticalScroll(rememberScrollState())
     ) {
         Text(
-            text = "App Settings & Configuration",
+            text = "Settings & Configuration",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground
         )
         Text(
-            text = "Manage manager PIN, thermal printer help, and store float",
+            text = "Customize register features, printer, security & data backups",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // 1. Manager Security PIN Card
-        GlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-            elevation = 2.dp
+        // Category Filter Chips Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
+            listOf(
+                "ALL" to "All Settings",
+                "POS" to "🛒 Store Options",
+                "PRINTER" to "🖨️ Printer",
+                "SECURITY" to "🔒 Security & PIN",
+                "BACKUP" to "☁️ Backup & Export"
+            ).forEach { (key, label) ->
+                FilterChip(
+                    selected = selectedCategoryFilter == key,
+                    onClick = { selectedCategoryFilter = key },
+                    label = { Text(label, fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(20.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // POS Feature Options Card (Add-Ons, Order Types, Delivery Surcharges, Cash Float)
+        val isAddOnsEnabled by viewModel.isAddOnsEnabled.collectAsState()
+        val isOrderTypesEnabled by viewModel.isOrderTypesEnabled.collectAsState()
+        val isSurchargeEnabled by viewModel.isSurchargeEnabled.collectAsState()
+        val surchargeName by viewModel.surchargeName.collectAsState()
+        var showSurchargeNameDialog by remember { mutableStateOf(false) }
+
+        // Section 1: Store & Register Options
+        if (selectedCategoryFilter in listOf("ALL", "POS")) {
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                elevation = 2.dp
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
                                 .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(10.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Security,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Icon(Icons.Default.PointOfSale, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                         }
                         Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Manager Security PIN",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = if (managerPin.isNotBlank()) "PIN Configured (4-digits)" else "No PIN Set",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                        Column {
+                            Text("Store & Register Options", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Configure item add-ons, order types, delivery fee & cash float", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    OutlinedButton(
-                        onClick = { showPinDialog = true },
-                        shape = RoundedCornerShape(10.dp)
+                    // Feature 1: Add-Ons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Item Add-Ons & Modifiers", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text("Allow adding toppings/modifiers to products during ordering", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = isAddOnsEnabled,
+                            onCheckedChange = { viewModel.setAddOnsEnabled(it) }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Feature 2: Order Types
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Order Types (Dine In / Take Out / Delivery)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text("Enable order type selection during checkout", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = isOrderTypesEnabled,
+                            onCheckedChange = { viewModel.setOrderTypesEnabled(it) }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Feature 3: Delivery Surcharge Fee
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Delivery / Surcharge Fee ($surchargeName)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text("Enable custom surcharge fee on checkout", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = isSurchargeEnabled,
+                            onCheckedChange = { viewModel.setSurchargeEnabled(it) }
+                        )
+                    }
+
+                    if (isSurchargeEnabled) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { showSurchargeNameDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Edit Surcharge Name ($surchargeName)", fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Feature 4: Cash Float
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Default Starting Cash Float", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text("Standard opening cash placed in register drawer", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         Text(
-                            text = if (managerPin.isBlank()) "Set PIN" else "Change",
+                            text = formatMoney(defaultCashFloat),
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Require PIN for Delete & Cash Float",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Prompts for PIN when deleting sales records or changing cash float",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Switch(
-                        checked = isPinRequired,
-                        onCheckedChange = { checked ->
-                            if (managerPin.isBlank()) {
-                                showPinDialog = true
-                            } else {
-                                pendingToggleAction = { viewModel.setPinRequired(checked) }
-                                showVerifyPinDialog = true
-                            }
-                        }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Require PIN for Void Orders",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Optional PIN prompt when voiding a sale (Default OFF for cashier speed)",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Switch(
-                        checked = isVoidPinRequired,
-                        onCheckedChange = { checked ->
-                            if (managerPin.isBlank()) {
-                                showPinDialog = true
-                            } else {
-                                pendingToggleAction = { viewModel.setVoidPinRequired(checked) }
-                                showVerifyPinDialog = true
-                            }
-                        }
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 2. Thermal Printer Setup & Help Card
-        GlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-            elevation = 2.dp
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(10.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Print,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Thermal Printer Setup",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = "Active: $selectedPrinterName",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (selectedPrinterName != "No Printer Selected") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Button(
-                        onClick = { showPrinterHelpDialog = true },
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { showFloatDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Help,
-                            contentDescription = "Help Guide",
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Guide & Test", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("Edit Default Cash Float", fontWeight = FontWeight.Bold)
                     }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                OutlinedButton(
-                    onClick = {
-                        viewModel.refreshPairedPrinters(context)
-                        showPrinterSelectDialog = true
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Bluetooth,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Select Paired Printer", fontWeight = FontWeight.Bold)
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Auto-Print Receipt on Checkout",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Automatically sends receipt to printer when checkout completes",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Switch(
-                        checked = isAutoPrintEnabled,
-                        onCheckedChange = { checked ->
-                            viewModel.setAutoPrintEnabled(checked)
-                        }
-                    )
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 3. Default Starting Cash Float Card
-        GlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-            elevation = 2.dp
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(10.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.AttachMoney,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Default Starting Cash Float",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = "Standard opening cash in drawer",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    Text(
-                        text = formatMoney(defaultCashFloat),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+        if (showSurchargeNameDialog) {
+            var tempName by remember { mutableStateOf(surchargeName) }
+            AlertDialog(
+                onDismissRequest = { showSurchargeNameDialog = false },
+                title = { Text("Edit Surcharge Name", fontWeight = FontWeight.Bold) },
+                text = {
+                    OutlinedTextField(
+                        value = tempName,
+                        onValueChange = { tempName = it },
+                        label = { Text("Surcharge Name") },
+                        placeholder = { Text("e.g. Delivery Fee, Service Charge") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
                     )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                OutlinedButton(
-                    onClick = { showFloatDialog = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text("Edit Default Float", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 4. Complete System JSON Backup & Restore Card (Phone to Phone Transfer)
-        GlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-            elevation = 2.dp
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(10.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CloudUpload,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Full System JSON Backup & Transfer",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = "Export or import 100% of products, sales, expenses & settings across phones",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        viewModel.setSurchargeName(tempName)
+                        showSurchargeNameDialog = false
+                    }) {
+                        Text("Save")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showSurchargeNameDialog = false }) {
+                        Text("Cancel")
                     }
                 }
+            )
+        }
 
-                Spacer(modifier = Modifier.height(12.dp))
+        // Section 2: Thermal Printer Setup Card
+        if (selectedCategoryFilter in listOf("ALL", "PRINTER")) {
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                elevation = 2.dp
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Print, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Thermal Printer Setup", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = "Active: $selectedPrinterName",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (selectedPrinterName != "No Printer Selected") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = { showPrinterHelpDialog = true },
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Help, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Guide & Test", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
                         onClick = {
-                            viewModel.exportJsonBackup(context) { result ->
+                            viewModel.refreshPairedPrinters(context)
+                            showPrinterSelectDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.Bluetooth, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Select Paired Bluetooth or USB Printer", fontWeight = FontWeight.Bold)
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Auto-Print Receipt on Checkout", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text("Automatically sends receipt to printer when checkout completes", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = isAutoPrintEnabled,
+                            onCheckedChange = { viewModel.setAutoPrintEnabled(it) }
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // Section 3: Manager Security PIN Card
+        if (selectedCategoryFilter in listOf("ALL", "SECURITY")) {
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                elevation = 2.dp
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Manager Security PIN", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = if (managerPin.isNotBlank()) "PIN Configured (4-digits)" else "No PIN Set",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        OutlinedButton(
+                            onClick = { showPinDialog = true },
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text(if (managerPin.isBlank()) "Set PIN" else "Change", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Require PIN for Delete & Cash Float", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text("Prompts for PIN when deleting records or changing cash float", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = isPinRequired,
+                            onCheckedChange = { checked ->
+                                if (managerPin.isBlank()) {
+                                    showPinDialog = true
+                                } else {
+                                    pendingToggleAction = { viewModel.setPinRequired(checked) }
+                                    showVerifyPinDialog = true
+                                }
+                            }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Require PIN for Void Orders", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text("Optional PIN prompt when voiding a sale (Default OFF for speed)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = isVoidPinRequired,
+                            onCheckedChange = { checked ->
+                                if (managerPin.isBlank()) {
+                                    showPinDialog = true
+                                } else {
+                                    pendingToggleAction = { viewModel.setVoidPinRequired(checked) }
+                                    showVerifyPinDialog = true
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // Section 4: Backup & Phone Transfer Card
+        if (selectedCategoryFilter in listOf("ALL", "BACKUP")) {
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                elevation = 2.dp
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.CloudUpload, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("Full System JSON Backup & Transfer", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Export or import 100% of products, add-ons, sales & settings", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                viewModel.exportJsonBackup(context) { result ->
+                                    if (result.isSuccess) {
+                                        Toast.makeText(context, result.getOrNull(), Toast.LENGTH_LONG).show()
+                                    } else {
+                                        Toast.makeText(context, result.exceptionOrNull()?.message, Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Export JSON", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                try {
+                                    jsonPickerLauncher.launch("application/json")
+                                } catch (_: Exception) {
+                                    jsonPickerLauncher.launch("*/*")
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Import JSON", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // CSV Exports
+                    Text("CSV Spreadsheet Exports (Excel/Sheets)", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                val result = CsvExportHelper.exportSalesToCsv(context, allOrders, "All Time Records")
                                 if (result.isSuccess) {
-                                    Toast.makeText(context, result.getOrNull(), Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, result.getOrNull(), Toast.LENGTH_SHORT).show()
                                 } else {
                                     Toast.makeText(context, result.exceptionOrNull()?.message, Toast.LENGTH_LONG).show()
                                 }
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CloudUpload,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Export Full JSON", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            try {
-                                jsonPickerLauncher.launch("application/json")
-                            } catch (_: Exception) {
-                                jsonPickerLauncher.launch("*/*")
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CloudDownload,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Import Full JSON", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // 5. Data Export (CSV / Excel) Card
-        GlassCard(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-            elevation = 2.dp
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .background(MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(10.dp)),
-                            contentAlignment = Alignment.Center
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.FileDownload,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Sales CSV", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Master Data Export (All-Time CSV)",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = "Exports complete all-time sales and expense history for Excel/Sheets",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+
+                        OutlinedButton(
+                            onClick = {
+                                val result = CsvExportHelper.exportExpensesToCsv(context, allExpenses, "All Time Records")
+                                if (result.isSuccess) {
+                                    Toast.makeText(context, result.getOrNull(), Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, result.exceptionOrNull()?.message, Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Expenses CSV", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                         }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = {
-                            val result = CsvExportHelper.exportSalesToCsv(context, allOrders, "All Time Records")
-                            if (result.isSuccess) {
-                                Toast.makeText(context, result.getOrNull(), Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, result.exceptionOrNull()?.message, Toast.LENGTH_LONG).show()
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Export All Sales CSV", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            val result = CsvExportHelper.exportExpensesToCsv(context, allExpenses, "All Time Records")
-                            if (result.isSuccess) {
-                                Toast.makeText(context, result.getOrNull(), Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, result.exceptionOrNull()?.message, Toast.LENGTH_LONG).show()
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Export All Expenses CSV", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                     }
                 }
             }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // 4. App Info Footer Card
+            Spacer(modifier = Modifier.height(16.dp))
+        // App Info Footer Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
@@ -1215,4 +1171,5 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             }
         )
     }
+}
 }

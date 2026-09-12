@@ -407,6 +407,14 @@ fun UnpaidOrderCard(
                     Text(text = "Order Name/ID: $orderTitle", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Medium)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(text = "Status: UNPAID", style = MaterialTheme.typography.bodyLarge, color = WarningOrange, fontWeight = FontWeight.Bold)
+                    if (!order.orderType.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = "Order Type: ${order.orderType}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    }
+                    if (order.surchargeFee > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = "${order.surchargeName.ifBlank { "Delivery Fee" }}: ${formatMoney(order.surchargeFee)}", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(text = "Date: $formattedDate", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
                     Spacer(modifier = Modifier.height(8.dp))
@@ -431,22 +439,36 @@ fun UnpaidOrderCard(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     orderWithItems.items.forEach { item ->
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .padding(vertical = 4.dp)
                         ) {
-                            Text(
-                                text = "${item.quantity}x ${item.productName}",
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = formatMoney(item.subtotal),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium
-                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "${item.quantity}x ${item.productName}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = formatMoney(item.subtotal),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            if (item.addOnsSummary.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "  + Add-Ons: ${item.addOnsSummary}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
                     
@@ -530,6 +552,24 @@ fun UnpaidOrderCard(
                                 color = WarningOrange,
                                 fontWeight = FontWeight.Bold
                             )
+                        }
+                        if (!order.orderType.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        shape = RoundedCornerShape(6.dp)
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = order.orderType,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                     Spacer(modifier = Modifier.height(4.dp))

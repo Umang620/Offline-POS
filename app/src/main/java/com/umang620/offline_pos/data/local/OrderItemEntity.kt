@@ -15,7 +15,9 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("orderId")]
+    indices = [
+        Index(value = ["orderId"])
+    ]
 )
 data class OrderItemEntity(
     @PrimaryKey(autoGenerate = true)
@@ -25,5 +27,6 @@ data class OrderItemEntity(
     val productName: String,
     val unitPrice: Double,
     val quantity: Int,
-    val subtotal: Double
+    val subtotal: Double,
+    val addOnsSummary: String = ""
 )

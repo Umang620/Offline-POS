@@ -230,6 +230,9 @@ object BluetoothPrinterHelper {
         if (order.orderNumber.isNotBlank()) {
             stream.write("Customer: ${order.orderNumber}\n".toByteArray(Charsets.US_ASCII))
         }
+        if (!order.orderType.isNullOrBlank()) {
+            stream.write("Order Type: ${order.orderType}\n".toByteArray(Charsets.US_ASCII))
+        }
         stream.write("Date: $dateStr\n".toByteArray(Charsets.US_ASCII))
         stream.write("Status: ${order.status}\n".toByteArray(Charsets.US_ASCII))
         if (!isUnpaid) {
@@ -246,6 +249,17 @@ object BluetoothPrinterHelper {
             val padding = 32 - nameLine.length - priceStr.length
             val spaces = if (padding > 0) " ".repeat(padding) else " "
             stream.write("$nameLine$spaces$priceStr\n".toByteArray(Charsets.US_ASCII))
+            if (item.addOnsSummary.isNotBlank()) {
+                stream.write("  [Add-Ons: ${item.addOnsSummary}]\n".toByteArray(Charsets.US_ASCII))
+            }
+        }
+
+        if (order.surchargeFee > 0) {
+            val surchargeLabel = "${order.surchargeName.ifBlank { "Delivery Fee" }}:"
+            val surchargeVal = formatMoney(order.surchargeFee)
+            val surchargePad = 32 - surchargeLabel.length - surchargeVal.length
+            val surchargeSpaces = if (surchargePad > 0) " ".repeat(surchargePad) else " "
+            stream.write("$surchargeLabel$surchargeSpaces$surchargeVal\n".toByteArray(Charsets.US_ASCII))
         }
 
         stream.write("--------------------------------\n".toByteArray(Charsets.US_ASCII))

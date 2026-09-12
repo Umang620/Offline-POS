@@ -10,22 +10,22 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ProductDao {
-    @Query("SELECT * FROM products ORDER BY name ASC")
+    @Query("SELECT * FROM products ORDER BY category ASC, name ASC")
     fun getAllProducts(): Flow<List<ProductEntity>>
 
-    @Query("SELECT * FROM products WHERE isActive = 1 AND (itemType = 'PRODUCT' OR itemType IS NULL) ORDER BY name ASC")
+    @Query("SELECT * FROM products WHERE isActive = 1 ORDER BY category ASC, name ASC")
     fun getActiveProducts(): Flow<List<ProductEntity>>
 
-    @Query("SELECT * FROM products WHERE (itemType = :itemType OR (:itemType = 'PRODUCT' AND itemType IS NULL)) ORDER BY name ASC")
+    @Query("SELECT * FROM products WHERE itemType = :itemType AND isActive = 1 ORDER BY category ASC, name ASC")
     fun getProductsByType(itemType: String): Flow<List<ProductEntity>>
 
-    @Query("SELECT DISTINCT category FROM products WHERE (itemType = 'PRODUCT' OR itemType IS NULL) ORDER BY category ASC")
+    @Query("SELECT DISTINCT category FROM products ORDER BY category ASC")
     fun getCategories(): Flow<List<String>>
 
-    @Query("SELECT * FROM products WHERE id = :productId LIMIT 1")
+    @Query("SELECT * FROM products WHERE id = :productId")
     suspend fun getProductById(productId: Long): ProductEntity?
 
-    @Query("SELECT * FROM products WHERE LOWER(TRIM(name)) = LOWER(TRIM(:name)) AND LOWER(TRIM(category)) = LOWER(TRIM(:category)) AND (itemType = :itemType OR (:itemType = 'PRODUCT' AND itemType IS NULL)) LIMIT 1")
+    @Query("SELECT * FROM products WHERE name = :name AND category = :category AND itemType = :itemType LIMIT 1")
     suspend fun findProductByNameAndCategory(name: String, category: String, itemType: String): ProductEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -43,12 +43,12 @@ interface ProductDao {
     @Query("DELETE FROM products")
     suspend fun deleteAllProducts(): Int
 
-    @Query("UPDATE products SET isActive = :isActive WHERE id = :productId")
-    suspend fun setProductStatus(productId: Long, isActive: Boolean): Int
+    @Query("UPDATE products SET isActive = :isActive WHERE id = :id")
+    suspend fun setProductStatus(id: Long, isActive: Boolean): Int
 
-    @Query("UPDATE products SET stockQuantity = stockQuantity - :quantity WHERE id = :productId AND stockQuantity >= :quantity")
-    suspend fun reduceStock(productId: Long, quantity: Int): Int
+    @Query("UPDATE products SET stockQuantity = stockQuantity - :quantity WHERE id = :id")
+    suspend fun reduceStock(id: Long, quantity: Int): Int
 
-    @Query("UPDATE products SET stockQuantity = stockQuantity + :quantity WHERE id = :productId")
-    suspend fun increaseStock(productId: Long, quantity: Int): Int
+    @Query("UPDATE products SET stockQuantity = stockQuantity + :quantity WHERE id = :id")
+    suspend fun increaseStock(id: Long, quantity: Int): Int
 }

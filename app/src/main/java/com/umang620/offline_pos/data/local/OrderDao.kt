@@ -39,7 +39,7 @@ interface OrderDao {
     @Query("DELETE FROM order_items WHERE orderId = :orderId")
     suspend fun deleteOrderItemsByOrderId(orderId: Long): Int
 
-    @Query("UPDATE orders SET orderNumber = :orderNumber, totalAmount = :totalAmount, totalItems = :totalItems, status = :status, paymentMethod = :paymentMethod, cashReceived = :cashReceived, changeAmount = :changeAmount, gcashRefNumber = :gcashRefNumber, timestamp = :timestamp WHERE id = :orderId")
+    @Query("UPDATE orders SET orderNumber = :orderNumber, totalAmount = :totalAmount, totalItems = :totalItems, status = :status, paymentMethod = :paymentMethod, cashReceived = :cashReceived, changeAmount = :changeAmount, gcashRefNumber = :gcashRefNumber, orderType = :orderType, surchargeFee = :surchargeFee, surchargeName = :surchargeName, timestamp = :timestamp WHERE id = :orderId")
     suspend fun updateOrder(
         orderId: Long,
         orderNumber: String,
@@ -50,6 +50,9 @@ interface OrderDao {
         cashReceived: Double?,
         changeAmount: Double?,
         gcashRefNumber: String?,
+        orderType: String? = null,
+        surchargeFee: Double = 0.0,
+        surchargeName: String = "Delivery Fee",
         timestamp: Long = System.currentTimeMillis()
     ): Int
 

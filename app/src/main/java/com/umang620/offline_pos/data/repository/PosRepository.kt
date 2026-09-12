@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Environment
 import androidx.core.content.FileProvider
+import com.umang620.offline_pos.data.local.AddOnDao
+import com.umang620.offline_pos.data.local.AddOnEntity
 import com.umang620.offline_pos.data.local.ExpenseDao
 import com.umang620.offline_pos.data.local.ExpenseEntity
 import com.umang620.offline_pos.data.local.OrderDao
@@ -25,11 +27,15 @@ import java.util.Locale
 class PosRepository(
     private val productDao: ProductDao,
     private val orderDao: OrderDao,
-    private val expenseDao: ExpenseDao
+    private val expenseDao: ExpenseDao,
+    private val addOnDao: AddOnDao
 ) {
     val allProducts: Flow<List<ProductEntity>> = productDao.getAllProducts()
     val activeProducts: Flow<List<ProductEntity>> = productDao.getActiveProducts()
     val categories: Flow<List<String>> = productDao.getCategories()
+
+    val allAddOns: Flow<List<AddOnEntity>> = addOnDao.getAllAddOns()
+    val activeAddOns: Flow<List<AddOnEntity>> = addOnDao.getActiveAddOns()
 
     fun getProductsByType(itemType: String): Flow<List<ProductEntity>> = productDao.getProductsByType(itemType)
 
@@ -73,7 +79,6 @@ class PosRepository(
             itemType = product.itemType
         )
         if (existing != null && existing.id != product.id) {
-            // Merge stock into existing product/raw material
             val mergedProduct = existing.copy(
                 stockQuantity = existing.stockQuantity + product.stockQuantity,
                 price = if (product.price > 0) product.price else existing.price,
@@ -106,6 +111,11 @@ class PosRepository(
         productDao.setProductStatus(productId, isActive)
     }
 
+    suspend fun insertAddOn(addOn: AddOnEntity): Long = addOnDao.insertAddOn(addOn)
+    suspend fun updateAddOn(addOn: AddOnEntity): Int = addOnDao.updateAddOn(addOn)
+    suspend fun deleteAddOn(addOn: AddOnEntity): Int = addOnDao.deleteAddOn(addOn)
+    suspend fun setAddOnStatus(id: Long, isActive: Boolean): Int = addOnDao.setAddOnStatus(id, isActive)
+
     suspend fun processCheckout(
         cartItems: List<CartItem>,
         paymentMethod: String,
@@ -114,13 +124,16 @@ class PosRepository(
         changeAmount: Double? = null,
         gcashRefNumber: String? = null,
         orderName: String = "",
-        editingOrderId: Long? = null
+        editingOrderId: Long? = null,
+        orderType: String? = null,
+        surchargeFee: Double = 0.0,
+        surchargeName: String = "Delivery Fee"
     ): Result<Long> {
         if (cartItems.isEmpty()) {
             return Result.failure(IllegalArgumentException("Cart is empty"))
         }
 
-        val totalAmount = cartItems.sumOf { it.subtotal }
+        val totalAmount = cartItems.sumOf { it.subtotal } + surchargeFee
         val totalItems = cartItems.sumOf { it.quantity }
         val status = if (isUnpaid) "UNPAID" else "PAID"
         val timestamp = System.currentTimeMillis()
@@ -145,6 +158,9 @@ class PosRepository(
                 cashReceived = if (!isUnpaid && paymentMethod == "Cash") cashReceived else null,
                 changeAmount = if (!isUnpaid && paymentMethod == "Cash") changeAmount else null,
                 gcashRefNumber = if (!isUnpaid && paymentMethod == "GCash") gcashRefNumber else null,
+                orderType = orderType,
+                surchargeFee = surchargeFee,
+                surchargeName = surchargeName,
                 timestamp = timestamp
             )
 
@@ -153,9 +169,10 @@ class PosRepository(
                     orderId = editingOrderId,
                     productId = cartItem.product.id,
                     productName = cartItem.product.name,
-                    unitPrice = cartItem.product.price,
+                    unitPrice = cartItem.unitPriceWithAddOns,
                     quantity = cartItem.quantity,
-                    subtotal = cartItem.subtotal
+                    subtotal = cartItem.subtotal,
+                    addOnsSummary = cartItem.addOnsSummary
                 )
             }
             orderDao.insertOrderItems(newOrderItems)
@@ -175,7 +192,10 @@ class PosRepository(
                 status = status,
                 cashReceived = if (!isUnpaid && paymentMethod == "Cash") cashReceived else null,
                 changeAmount = if (!isUnpaid && paymentMethod == "Cash") changeAmount else null,
-                gcashRefNumber = if (!isUnpaid && paymentMethod == "GCash") gcashRefNumber else null
+                gcashRefNumber = if (!isUnpaid && paymentMethod == "GCash") gcashRefNumber else null,
+                orderType = orderType,
+                surchargeFee = surchargeFee,
+                surchargeName = surchargeName
             )
 
             val orderId = orderDao.insertOrder(order)
@@ -188,9 +208,10 @@ class PosRepository(
                     orderId = orderId,
                     productId = cartItem.product.id,
                     productName = cartItem.product.name,
-                    unitPrice = cartItem.product.price,
+                    unitPrice = cartItem.unitPriceWithAddOns,
                     quantity = cartItem.quantity,
-                    subtotal = cartItem.subtotal
+                    subtotal = cartItem.subtotal,
+                    addOnsSummary = cartItem.addOnsSummary
                 )
             }
 
@@ -242,15 +263,15 @@ class PosRepository(
     suspend fun exportJsonBackup(context: Context): Result<String> {
         return try {
             val products = productDao.getAllProducts().first()
+            val addOns = addOnDao.getAllAddOns().first()
             val orders = orderDao.getAllOrdersWithItems().first()
             val expenses = expenseDao.getAllExpenses().first()
             val prefs = context.getSharedPreferences("pos_settings", Context.MODE_PRIVATE)
 
-            val jsonString = JsonBackupHelper.createJsonBackup(products, orders, expenses, prefs)
+            val jsonString = JsonBackupHelper.createJsonBackup(products, addOns, orders, expenses, prefs)
             val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
             val fileName = "POS_Full_Backup_$timeStamp.json"
 
-            // Save to Downloads directory
             try {
                 val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                 if (downloadsDir.exists() || downloadsDir.mkdirs()) {
@@ -259,7 +280,6 @@ class PosRepository(
                 }
             } catch (_: Exception) {}
 
-            // Save to Cache directory for sharing
             val cacheFile = File(context.cacheDir, fileName)
             cacheFile.writeText(jsonString, Charsets.UTF_8)
 
@@ -295,9 +315,9 @@ class PosRepository(
                 orderDao.deleteAllOrderItems()
                 orderDao.deleteAllOrders()
                 productDao.deleteAllProducts()
+                addOnDao.deleteAllAddOns()
             }
 
-            // Product ID Remapping
             val productIdMap = mutableMapOf<Long, Long>()
             payload.products.forEach { product ->
                 if (replaceExisting) {
@@ -308,7 +328,17 @@ class PosRepository(
                 }
             }
 
-            // Orders & Order Items
+            payload.addOns.forEach { addOn ->
+                if (replaceExisting) {
+                    addOnDao.insertAddOn(addOn.copy(id = 0))
+                } else {
+                    val existingList = addOnDao.getAllAddOns().first()
+                    if (existingList.none { it.name.equals(addOn.name, ignoreCase = true) }) {
+                        addOnDao.insertAddOn(addOn.copy(id = 0))
+                    }
+                }
+            }
+
             payload.ordersWithItems.forEach { owi ->
                 val order = owi.order
                 val newOrderId = orderDao.insertOrder(order.copy(id = if (replaceExisting) order.id else 0))
@@ -320,17 +350,15 @@ class PosRepository(
                 orderDao.insertOrderItems(newItems)
             }
 
-            // Expenses
             payload.expenses.forEach { expense ->
                 expenseDao.insertExpense(expense.copy(id = if (replaceExisting) expense.id else 0))
             }
 
-            // Settings
             if (payload.settings.isNotEmpty()) {
                 JsonBackupHelper.applySettings(context, payload.settings)
             }
 
-            val summary = "Imported ${payload.products.size} products, ${payload.ordersWithItems.size} orders, and ${payload.expenses.size} expenses!"
+            val summary = "Imported ${payload.products.size} products, ${payload.addOns.size} add-ons, ${payload.ordersWithItems.size} orders, and ${payload.expenses.size} expenses!"
             Result.success(summary)
         } catch (e: Exception) {
             Result.failure(Exception("Failed to import JSON backup: ${e.message}"))

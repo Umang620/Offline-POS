@@ -1,6 +1,10 @@
 package com.umang620.offline_pos.ui.summary
 
+import android.app.TimePickerDialog
 import android.content.Context
+import android.content.ContextWrapper
+import androidx.activity.ComponentActivity
+import java.util.TimeZone
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -130,16 +134,43 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
         formatDateRange(activeDateRange.first, activeDateRange.second, selectedPeriod)
     }
 
+    val context = LocalContext.current
+    val activityContext = context.findActivity() ?: context
+
     if (showStartPicker) {
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = customStartDate)
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = if (customStartDate > 0) customStartDate else System.currentTimeMillis()
+        )
         DatePickerDialog(
             onDismissRequest = { showStartPicker = false },
             confirmButton = {
                 TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { timestamp ->
-                        viewModel.updateCustomStartDate(timestamp)
-                    }
+                    val selectedDateMillis = datePickerState.selectedDateMillis
                     showStartPicker = false
+                    if (selectedDateMillis != null) {
+                        val currentCal = Calendar.getInstance().apply { timeInMillis = customStartDate }
+                        TimePickerDialog(
+                            activityContext,
+                            { _, selectedHour, selectedMinute ->
+                                val utcCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                                    timeInMillis = selectedDateMillis
+                                }
+                                val localCal = Calendar.getInstance().apply {
+                                    set(Calendar.YEAR, utcCal.get(Calendar.YEAR))
+                                    set(Calendar.MONTH, utcCal.get(Calendar.MONTH))
+                                    set(Calendar.DAY_OF_MONTH, utcCal.get(Calendar.DAY_OF_MONTH))
+                                    set(Calendar.HOUR_OF_DAY, selectedHour)
+                                    set(Calendar.MINUTE, selectedMinute)
+                                    set(Calendar.SECOND, 0)
+                                    set(Calendar.MILLISECOND, 0)
+                                }
+                                viewModel.updateCustomStartDate(localCal.timeInMillis)
+                            },
+                            currentCal.get(Calendar.HOUR_OF_DAY),
+                            currentCal.get(Calendar.MINUTE),
+                            false
+                        ).show()
+                    }
                 }) {
                     Text("OK")
                 }
@@ -155,15 +186,39 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
     }
 
     if (showEndPicker) {
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = customEndDate)
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = if (customEndDate > 0) customEndDate else System.currentTimeMillis()
+        )
         DatePickerDialog(
             onDismissRequest = { showEndPicker = false },
             confirmButton = {
                 TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { timestamp ->
-                        viewModel.updateCustomEndDate(timestamp)
-                    }
+                    val selectedDateMillis = datePickerState.selectedDateMillis
                     showEndPicker = false
+                    if (selectedDateMillis != null) {
+                        val currentCal = Calendar.getInstance().apply { timeInMillis = customEndDate }
+                        TimePickerDialog(
+                            activityContext,
+                            { _, selectedHour, selectedMinute ->
+                                val utcCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                                    timeInMillis = selectedDateMillis
+                                }
+                                val localCal = Calendar.getInstance().apply {
+                                    set(Calendar.YEAR, utcCal.get(Calendar.YEAR))
+                                    set(Calendar.MONTH, utcCal.get(Calendar.MONTH))
+                                    set(Calendar.DAY_OF_MONTH, utcCal.get(Calendar.DAY_OF_MONTH))
+                                    set(Calendar.HOUR_OF_DAY, selectedHour)
+                                    set(Calendar.MINUTE, selectedMinute)
+                                    set(Calendar.SECOND, 59)
+                                    set(Calendar.MILLISECOND, 999)
+                                }
+                                viewModel.updateCustomEndDate(localCal.timeInMillis)
+                            },
+                            currentCal.get(Calendar.HOUR_OF_DAY),
+                            currentCal.get(Calendar.MINUTE),
+                            false
+                        ).show()
+                    }
                 }) {
                     Text("OK")
                 }
@@ -449,7 +504,7 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "Select Custom Start and End Dates:",
+                        text = "Select Custom Start and End Date & Time:",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -468,11 +523,11 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("Start Date", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("Start Date & Time", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(
-                                    text = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(customStartDate)),
+                                    text = SimpleDateFormat("MMM dd, yyyy - hh:mm a", Locale.getDefault()).format(Date(customStartDate)),
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp
+                                    fontSize = 11.sp
                                 )
                             }
                         }
@@ -484,11 +539,11 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
                             contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("End Date", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("End Date & Time", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(
-                                    text = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(customEndDate)),
+                                    text = SimpleDateFormat("MMM dd, yyyy - hh:mm a", Locale.getDefault()).format(Date(customEndDate)),
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp
+                                    fontSize = 11.sp
                                 )
                             }
                         }
@@ -1547,6 +1602,10 @@ fun formatDateRange(start: Long, end: Long, period: ReportPeriod): String {
     if (period == ReportPeriod.ALL_TIME || end == Long.MAX_VALUE) {
         return "All-Time Records"
     }
+    if (period == ReportPeriod.CUSTOM) {
+        val dateTimeFormat = SimpleDateFormat("MMM dd, yyyy - hh:mm a", Locale.getDefault())
+        return "${dateTimeFormat.format(Date(start))} – ${dateTimeFormat.format(Date(end))}"
+    }
     val startCal = Calendar.getInstance().apply { timeInMillis = start }
     val endCal = Calendar.getInstance().apply { timeInMillis = end }
 
@@ -1566,4 +1625,15 @@ fun formatDateRange(start: Long, end: Long, period: ReportPeriod): String {
             "${fullDateFormat.format(Date(start))} – ${fullDateFormat.format(Date(end))}"
         }
     }
+}
+
+private fun Context.findActivity(): ComponentActivity? {
+    var ctx = this
+    while (ctx is ContextWrapper) {
+        if (ctx is ComponentActivity) {
+            return ctx
+        }
+        ctx = ctx.baseContext
+    }
+    return null
 }

@@ -114,10 +114,11 @@ class MainActivity : ComponentActivity() {
         val repository = PosRepository(
             productDao = database.productDao(),
             orderDao = database.orderDao(),
-            expenseDao = database.expenseDao()
+            expenseDao = database.expenseDao(),
+            addOnDao = database.addOnDao()
         )
 
-        val posViewModel: PosViewModel by viewModels { PosViewModel.Factory(repository) }
+        val posViewModel: PosViewModel by viewModels { PosViewModel.Factory(repository, applicationContext) }
         val unpaidOrdersViewModel: UnpaidOrdersViewModel by viewModels { UnpaidOrdersViewModel.Factory(repository) }
         val salesViewModel: SalesViewModel by viewModels { SalesViewModel.Factory(repository) }
         val expensesViewModel: ExpensesViewModel by viewModels { ExpensesViewModel.Factory(repository) }

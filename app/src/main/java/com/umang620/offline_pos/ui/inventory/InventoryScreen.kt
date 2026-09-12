@@ -68,6 +68,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.umang620.offline_pos.data.local.AddOnEntity
 import com.umang620.offline_pos.data.local.ProductEntity
 import com.umang620.offline_pos.ui.theme.DangerRed
 import com.umang620.offline_pos.ui.theme.GlassCard
@@ -87,16 +88,19 @@ fun formatStockDisplay(quantity: Int): String {
 
 @Composable
 fun InventoryScreen(viewModel: InventoryViewModel) {
-    var selectedTab by remember { mutableStateOf("PRODUCT") } // "PRODUCT" or "RAW_MATERIAL"
+    var selectedTab by remember { mutableStateOf("PRODUCT") } // "PRODUCT", "RAW_MATERIAL", or "ADD_ON"
     var searchQuery by remember { mutableStateOf("") }
 
     val products by viewModel.products.collectAsState()
     val rawMaterials by viewModel.rawMaterials.collectAsState()
+    val addOns by viewModel.addOns.collectAsState()
 
     var showTypeSelectionDialog by remember { mutableStateOf(false) }
-    var newItemTypeToAdd by remember { mutableStateOf<String?>(null) } // "PRODUCT" or "RAW_MATERIAL"
+    var newItemTypeToAdd by remember { mutableStateOf<String?>(null) } // "PRODUCT", "RAW_MATERIAL", or "ADD_ON"
     var productToEdit by remember { mutableStateOf<ProductEntity?>(null) }
     var productToDelete by remember { mutableStateOf<ProductEntity?>(null) }
+    var addOnToEdit by remember { mutableStateOf<AddOnEntity?>(null) }
+    var addOnToDelete by remember { mutableStateOf<AddOnEntity?>(null) }
 
     val activeItems = if (selectedTab == "PRODUCT") products else rawMaterials
 
@@ -109,6 +113,18 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
                 item.name.lowercase().contains(query) ||
                 item.category.lowercase().contains(query) ||
                 item.sku.lowercase().contains(query)
+            }
+        }
+    }
+
+    val filteredAddOns = remember(addOns, searchQuery) {
+        if (searchQuery.isBlank()) {
+            addOns
+        } else {
+            val query = searchQuery.trim().lowercase()
+            addOns.filter { addOn ->
+                addOn.name.lowercase().contains(query) ||
+                addOn.category.lowercase().contains(query)
             }
         }
     }
@@ -139,7 +155,7 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            // Section Selector Chips: Products vs Raw Materials
+            // Section Selector Chips: Products vs Raw Materials vs Add-Ons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -160,6 +176,15 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
                     selected = selectedTab == "RAW_MATERIAL",
                     onClick = { selectedTab = "RAW_MATERIAL" },
                     label = { Text("Raw Materials (${rawMaterials.size})", fontWeight = FontWeight.Bold) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = Color.White
+                    )
+                )
+                FilterChip(
+                    selected = selectedTab == "ADD_ON",
+                    onClick = { selectedTab = "ADD_ON" },
+                    label = { Text("Add-Ons (${addOns.size})", fontWeight = FontWeight.Bold) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = MaterialTheme.colorScheme.primary,
                         selectedLabelColor = Color.White
@@ -193,7 +218,37 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
                 )
             )
 
-            if (filteredItems.isEmpty()) {
+            if (selectedTab == "ADD_ON") {
+                if (filteredAddOns.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (searchQuery.isNotBlank()) "No add-ons found matching \"$searchQuery\"" else "No add-ons available. Tap + to create one.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(bottom = 80.dp)
+                    ) {
+                        items(filteredAddOns, key = { it.id }) { addOn ->
+                            AddOnCard(
+                                addOn = addOn,
+                                onEdit = { addOnToEdit = addOn },
+                                onDelete = { addOnToDelete = addOn },
+                                onToggleActive = { viewModel.toggleAddOnStatus(addOn) }
+                            )
+                        }
+                    }
+                }
+            } else if (filteredItems.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -233,6 +288,54 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
         }
     }
 
+    // Add-On Dialogs
+    if (newItemTypeToAdd == "ADD_ON") {
+        AddEditAddOnDialog(
+            initialAddOn = null,
+            onDismiss = { newItemTypeToAdd = null },
+            onSave = { name, price, category ->
+                viewModel.addAddOn(name, price, category)
+                newItemTypeToAdd = null
+            }
+        )
+    }
+
+    addOnToEdit?.let { addOn ->
+        AddEditAddOnDialog(
+            initialAddOn = addOn,
+            onDismiss = { addOnToEdit = null },
+            onSave = { name, price, category ->
+                viewModel.updateAddOn(addOn.copy(name = name, price = price, category = category))
+                addOnToEdit = null
+            }
+        )
+    }
+
+    addOnToDelete?.let { addOn ->
+        AlertDialog(
+            onDismissRequest = { addOnToDelete = null },
+            title = { Text("Delete Add-On", fontWeight = FontWeight.Bold) },
+            text = { Text("Are you sure you want to delete '${addOn.name}'?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteAddOn(addOn)
+                        addOnToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Delete", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { addOnToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     // Step 1: Type Selection Dialog ("What are you adding?")
     if (showTypeSelectionDialog) {
         AddTypeSelectionDialog(
@@ -246,25 +349,27 @@ fun InventoryScreen(viewModel: InventoryViewModel) {
 
     // Step 2: Form Dialog
     newItemTypeToAdd?.let { itemType ->
-        ItemFormDialog(
-            title = if (itemType == "PRODUCT") "Add Sellable Product" else "Add Raw Material",
-            initialItem = null,
-            itemType = itemType,
-            onDismiss = { newItemTypeToAdd = null },
-            onSave = { name, price, category, stock, sku, isActive, unit ->
-                viewModel.addInventoryItem(
-                    name = name,
-                    price = price,
-                    category = category,
-                    stockQuantity = stock,
-                    sku = sku,
-                    isActive = isActive,
-                    itemType = itemType,
-                    unit = unit
-                )
-                newItemTypeToAdd = null
-            }
-        )
+        if (itemType != "ADD_ON") {
+            ItemFormDialog(
+                title = if (itemType == "PRODUCT") "Add Sellable Product" else "Add Raw Material",
+                initialItem = null,
+                itemType = itemType,
+                onDismiss = { newItemTypeToAdd = null },
+                onSave = { name, price, category, stock, sku, isActive, unit ->
+                    viewModel.addInventoryItem(
+                        name = name,
+                        price = price,
+                        category = category,
+                        stockQuantity = stock,
+                        sku = sku,
+                        isActive = isActive,
+                        itemType = itemType,
+                        unit = unit
+                    )
+                    newItemTypeToAdd = null
+                }
+            )
+        }
     }
 
     // Edit Item Dialog
@@ -447,6 +552,150 @@ fun AddTypeSelectionDialog(
             }
         }
     }
+}
+
+@Composable
+fun AddOnCard(
+    addOn: AddOnEntity,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onToggleActive: (Boolean) -> Unit
+) {
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+        elevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = addOn.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = addOn.category,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (addOn.price > 0) "+${formatMoney(addOn.price)}" else "Free Add-On",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Switch(
+                    checked = addOn.isActive,
+                    onCheckedChange = onToggleActive,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = SuccessGreen
+                    )
+                )
+                IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit Add-On", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                }
+                IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete Add-On", tint = DangerRed, modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AddEditAddOnDialog(
+    initialAddOn: AddOnEntity? = null,
+    onDismiss: () -> Unit,
+    onSave: (name: String, price: Double, category: String) -> Unit
+) {
+    var name by remember { mutableStateOf(initialAddOn?.name ?: "") }
+    var priceStr by remember { mutableStateOf(initialAddOn?.price?.let { if (it > 0) it.toString() else "" } ?: "") }
+    var category by remember { mutableStateOf(initialAddOn?.category ?: "General") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = if (initialAddOn != null) "Edit Add-On" else "Add New Add-On",
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Add-On Name") },
+                    placeholder = { Text("e.g. Extra Cheese, Pearl, Shot") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = priceStr,
+                    onValueChange = { priceStr = it },
+                    label = { Text("Price (₱)") },
+                    placeholder = { Text("0.00") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = category,
+                    onValueChange = { category = it },
+                    label = { Text("Category") },
+                    placeholder = { Text("General, Toppings, Syrup, etc.") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (name.isNotBlank()) {
+                        val price = priceStr.toDoubleOrNull() ?: 0.0
+                        onSave(name.trim(), price, category.ifBlank { "General" })
+                    }
+                },
+                enabled = name.isNotBlank()
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable

@@ -39,6 +39,18 @@ class SettingsViewModel(context: Context, private val repository: PosRepository?
     private val _isAutoPrintEnabled = MutableStateFlow(prefs.getBoolean("is_auto_print_enabled", true))
     val isAutoPrintEnabled: StateFlow<Boolean> = _isAutoPrintEnabled.asStateFlow()
 
+    private val _isAddOnsEnabled = MutableStateFlow(prefs.getBoolean("enable_item_add_ons", true))
+    val isAddOnsEnabled: StateFlow<Boolean> = _isAddOnsEnabled.asStateFlow()
+
+    private val _isOrderTypesEnabled = MutableStateFlow(prefs.getBoolean("enable_order_types", true))
+    val isOrderTypesEnabled: StateFlow<Boolean> = _isOrderTypesEnabled.asStateFlow()
+
+    private val _isSurchargeEnabled = MutableStateFlow(prefs.getBoolean("enable_surcharge_fee", true))
+    val isSurchargeEnabled: StateFlow<Boolean> = _isSurchargeEnabled.asStateFlow()
+
+    private val _surchargeName = MutableStateFlow(prefs.getString("surcharge_name", "Delivery Fee") ?: "Delivery Fee")
+    val surchargeName: StateFlow<String> = _surchargeName.asStateFlow()
+
     private val _defaultCashFloat = MutableStateFlow(prefs.getFloat("default_cash_float", 1000f).toDouble())
     val defaultCashFloat: StateFlow<Double> = _defaultCashFloat.asStateFlow()
 
@@ -104,6 +116,27 @@ class SettingsViewModel(context: Context, private val repository: PosRepository?
         prefs.edit().putBoolean("is_auto_print_enabled", enabled).apply()
     }
 
+    fun setAddOnsEnabled(enabled: Boolean) {
+        _isAddOnsEnabled.value = enabled
+        prefs.edit().putBoolean("enable_item_add_ons", enabled).commit()
+    }
+
+    fun setOrderTypesEnabled(enabled: Boolean) {
+        _isOrderTypesEnabled.value = enabled
+        prefs.edit().putBoolean("enable_order_types", enabled).commit()
+    }
+
+    fun setSurchargeEnabled(enabled: Boolean) {
+        _isSurchargeEnabled.value = enabled
+        prefs.edit().putBoolean("enable_surcharge_fee", enabled).commit()
+    }
+
+    fun setSurchargeName(name: String) {
+        val formatted = name.ifBlank { "Delivery Fee" }
+        _surchargeName.value = formatted
+        prefs.edit().putString("surcharge_name", formatted).commit()
+    }
+
     fun setDefaultCashFloat(amount: Double) {
         _defaultCashFloat.value = amount
         prefs.edit().putFloat("default_cash_float", amount.toFloat()).apply()
@@ -161,6 +194,10 @@ class SettingsViewModel(context: Context, private val repository: PosRepository?
         _isPinRequired.value = prefs.getBoolean("is_pin_required", true)
         _isVoidPinRequired.value = prefs.getBoolean("is_void_pin_required", false)
         _isAutoPrintEnabled.value = prefs.getBoolean("is_auto_print_enabled", true)
+        _isAddOnsEnabled.value = prefs.getBoolean("enable_item_add_ons", true)
+        _isOrderTypesEnabled.value = prefs.getBoolean("enable_order_types", true)
+        _isSurchargeEnabled.value = prefs.getBoolean("enable_surcharge_fee", true)
+        _surchargeName.value = prefs.getString("surcharge_name", "Delivery Fee") ?: "Delivery Fee"
         _defaultCashFloat.value = prefs.getFloat("default_cash_float", 1000f).toDouble()
         _selectedPrinterAddress.value = prefs.getString("selected_printer_address", "") ?: ""
         _selectedPrinterName.value = prefs.getString("selected_printer_name", "No Printer Selected") ?: "No Printer Selected"

@@ -12,9 +12,12 @@ data class OrderEntity(
     val totalAmount: Double,
     val paymentMethod: String,
     val totalItems: Int,
-    val status: String = "PAID", // "PAID", "UNPAID", "VOIDED"
+    val status: String = "PAID",
     val cashReceived: Double? = null,
     val changeAmount: Double? = null,
     val gcashRefNumber: String? = null,
-    val voidedTimestamp: Long? = null
+    val voidedTimestamp: Long? = null,
+    val orderType: String? = null,
+    val surchargeFee: Double = 0.0,
+    val surchargeName: String = "Delivery Fee"
 )

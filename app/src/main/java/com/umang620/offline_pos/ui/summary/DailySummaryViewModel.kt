@@ -55,7 +55,7 @@ class DailySummaryViewModel(private val repository: PosRepository) : ViewModel()
     }
 
     fun updateCustomStartDate(timestamp: Long) {
-        _customStartDate.value = getStartOfDay(timestamp)
+        _customStartDate.value = timestamp
         if (_customEndDate.value < _customStartDate.value) {
             _customEndDate.value = _customStartDate.value
         }
@@ -63,7 +63,7 @@ class DailySummaryViewModel(private val repository: PosRepository) : ViewModel()
     }
 
     fun updateCustomEndDate(timestamp: Long) {
-        _customEndDate.value = getStartOfDay(timestamp)
+        _customEndDate.value = timestamp
         if (_customStartDate.value > _customEndDate.value) {
             _customStartDate.value = _customEndDate.value
         }
@@ -71,8 +71,8 @@ class DailySummaryViewModel(private val repository: PosRepository) : ViewModel()
     }
 
     fun setCustomDateRange(startMillis: Long, endMillis: Long) {
-        _customStartDate.value = getStartOfDay(startMillis)
-        _customEndDate.value = getStartOfDay(endMillis)
+        _customStartDate.value = startMillis
+        _customEndDate.value = endMillis
         _selectedPeriod.value = ReportPeriod.CUSTOM
     }
 
@@ -192,7 +192,7 @@ class DailySummaryViewModel(private val repository: PosRepository) : ViewModel()
                     Pair(0L, Long.MAX_VALUE)
                 }
                 ReportPeriod.CUSTOM -> {
-                    Pair(getStartOfDay(customStart), getEndOfDay(customEnd))
+                    Pair(customStart, customEnd)
                 }
             }
         }
