@@ -640,6 +640,11 @@ fun AddEditAddOnDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        modifier = Modifier
+            .fillMaxWidth(0.92f)
+            .widthIn(max = 520.dp)
+            .padding(vertical = 16.dp),
         title = {
             Text(
                 text = if (initialAddOn != null) "Edit Add-On" else "Add New Add-On",

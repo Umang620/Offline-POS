@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -114,7 +116,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp)
+            .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 80.dp)
             .verticalScroll(rememberScrollState())
     ) {
         Text(
@@ -301,6 +303,11 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             var tempName by remember { mutableStateOf(surchargeName) }
             AlertDialog(
                 onDismissRequest = { showSurchargeNameDialog = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false),
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .widthIn(max = 520.dp)
+                    .padding(vertical = 16.dp),
                 title = { Text("Edit Surcharge Name", fontWeight = FontWeight.Bold) },
                 text = {
                     OutlinedTextField(
@@ -673,6 +680,11 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
 
         AlertDialog(
             onDismissRequest = { showPinDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 520.dp)
+                .padding(vertical = 16.dp),
             title = { Text(if (isEditing) "Change Manager PIN" else "Set 4-Digit Manager PIN", fontWeight = FontWeight.Bold) },
             text = {
                 Column(
@@ -779,6 +791,11 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 showVerifyPinDialog = false
                 pendingToggleAction = null
             },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 520.dp)
+                .padding(vertical = 16.dp),
             title = { Text("Manager Authorization", fontWeight = FontWeight.Bold) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -835,6 +852,11 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
         var inputFloat by remember { mutableStateOf(defaultCashFloat.toString()) }
         AlertDialog(
             onDismissRequest = { showFloatDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 520.dp)
+                .padding(vertical = 16.dp),
             title = { Text("Edit Default Cash Float", fontWeight = FontWeight.Bold) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -895,6 +917,11 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
     if (showPrinterHelpDialog) {
         AlertDialog(
             onDismissRequest = { showPrinterHelpDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 520.dp)
+                .padding(vertical = 16.dp),
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(imageVector = Icons.Default.Print, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
@@ -970,6 +997,11 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
     if (showPrinterSelectDialog) {
         AlertDialog(
             onDismissRequest = { showPrinterSelectDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 520.dp)
+                .padding(vertical = 16.dp),
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(imageVector = Icons.Default.Print, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
@@ -1057,6 +1089,11 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 showImportConfirmDialog = false
                 pendingImportUri = null
             },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 520.dp)
+                .padding(vertical = 16.dp),
             title = {
                 Text("Confirm System Backup Import", fontWeight = FontWeight.Bold)
             },

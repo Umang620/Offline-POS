@@ -9,6 +9,9 @@ import com.umang620.offline_pos.data.local.AddOnEntity
 import com.umang620.offline_pos.utils.BluetoothPrinterHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,10 +19,12 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,6 +33,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -45,6 +51,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.Remove
@@ -60,6 +68,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -118,23 +127,29 @@ fun RegisterScreen(viewModel: PosViewModel) {
     val isSurchargeEnabled by viewModel.isSurchargeEnabled.collectAsState()
     val surchargeNamePref by viewModel.surchargeName.collectAsState()
 
-    var showCartSheet by remember { mutableStateOf(false) }
+    var isCartExpanded by remember { mutableStateOf(false) }
     var showCheckoutDialog by remember { mutableStateOf(false) }
     var showNoPrinterDialog by remember { mutableStateOf(false) }
     var isGridView by remember { mutableStateOf(true) }
     var selectedProductForAddOns by remember { mutableStateOf<ProductEntity?>(null) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
 
     val totalAmount = cartItems.sumOf { it.subtotal }
     val totalItemCount = cartItems.sumOf { it.quantity }
+
+    var previousTotalCount by remember { mutableStateOf(0) }
+    LaunchedEffect(totalItemCount) {
+        if (totalItemCount > previousTotalCount) {
+            isCartExpanded = true
+        }
+        previousTotalCount = totalItemCount
+    }
 
     LaunchedEffect(Unit) {
         viewModel.checkoutEvent.collect { event ->
             when (event) {
                 is CheckoutEvent.Success -> {
                     showCheckoutDialog = false
-                    showCartSheet = false
                     val msg = if (event.isUnpaid) "Order #${event.orderId} Saved as UNPAID" else "Order #${event.orderId} Completed!"
                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
 
@@ -167,236 +182,347 @@ fun RegisterScreen(viewModel: PosViewModel) {
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = if (cartItems.isNotEmpty()) 84.dp else 0.dp)
-        ) {
-            if (editingOrder != null) {
-                GlassSurface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    backgroundColor = WarningOrange.copy(alpha = 0.15f),
-                    borderColor = WarningOrange.copy(alpha = 0.5f),
-                    elevation = 2.dp
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Editing Unpaid Order",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = WarningOrange,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = editingOrder?.order?.orderNumber?.ifBlank { "Order #${editingOrder?.order?.id}" } ?: "",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        TextButton(
-                            onClick = { viewModel.cancelEditingOrder() }
-                        ) {
-                            Text("Cancel Edit", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-            }
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        val isWideScreen = maxWidth >= 720.dp
 
-            // Header / Search Bar
-            SurfaceHeader(
-                searchQuery = searchQuery,
-                isGridView = isGridView,
-                onSearchChange = { viewModel.updateSearchQuery(it) },
-                onClearSearch = { viewModel.updateSearchQuery("") },
-                onToggleLayout = { isGridView = !isGridView }
-            )
-
-            // Category Chips
-            if (categories.isNotEmpty()) {
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.padding(vertical = 8.dp)
-                ) {
-                    item {
-                        FilterChip(
-                            selected = selectedCategory == null,
-                            onClick = { viewModel.selectCategory(null) },
-                            label = { Text("All Products", fontWeight = FontWeight.Medium) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = Color.White
-                            ),
-                            shape = RoundedCornerShape(20.dp)
-                        )
-                    }
-                    items(categories) { category ->
-                        FilterChip(
-                            selected = selectedCategory == category,
-                            onClick = { viewModel.selectCategory(category) },
-                            label = { Text(category, fontWeight = FontWeight.Medium) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = Color.White
-                            ),
-                            shape = RoundedCornerShape(20.dp)
-                        )
-                    }
-                }
-            }
-
-            // Product Catalog (Grid or List View)
-            if (products.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (searchQuery.isNotEmpty()) "No matching products found" else "No products available in inventory",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            } else if (isGridView) {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 145.dp),
-                    contentPadding = PaddingValues(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    items(products, key = { it.id }) { product ->
-                        ProductCard(
-                            product = product,
-                            onAddToCart = {
-                                if (isAddOnsEnabled && activeAddOns.isNotEmpty()) {
-                                    selectedProductForAddOns = product
-                                } else {
-                                    viewModel.addToCart(product)
-                                }
-                            }
-                        )
-                    }
-                }
-            } else {
-                LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    items(products, key = { it.id }) { product ->
-                        ProductListRow(
-                            product = product,
-                            onAddToCart = {
-                                if (isAddOnsEnabled && activeAddOns.isNotEmpty()) {
-                                    selectedProductForAddOns = product
-                                } else {
-                                    viewModel.addToCart(product)
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-        }
-
-        // Bottom Cart Summary Floating Bar
-        if (cartItems.isNotEmpty()) {
-            GlassCard(
+        if (isWideScreen) {
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
+                    .fillMaxSize()
                     .padding(12.dp),
-                shape = RoundedCornerShape(20.dp),
-                backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-                elevation = 6.dp
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(
+                // Left Column: Catalog
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .weight(1f)
+                        .fillMaxHeight()
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .clickable { showCartSheet = true }
-                            .padding(4.dp)
-                    ) {
+                    if (editingOrder != null) {
+                        GlassSurface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 6.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            backgroundColor = WarningOrange.copy(alpha = 0.15f),
+                            borderColor = WarningOrange.copy(alpha = 0.5f),
+                            elevation = 2.dp
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Editing Unpaid Order",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = WarningOrange,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = editingOrder?.order?.orderNumber?.ifBlank { "Order #${editingOrder?.order?.id}" } ?: "",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                TextButton(
+                                    onClick = { viewModel.cancelEditingOrder() }
+                                ) {
+                                    Text("Cancel Edit", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+
+                    // Header / Search Bar
+                    SurfaceHeader(
+                        searchQuery = searchQuery,
+                        isGridView = isGridView,
+                        onSearchChange = { viewModel.updateSearchQuery(it) },
+                        onClearSearch = { viewModel.updateSearchQuery("") },
+                        onToggleLayout = { isGridView = !isGridView }
+                    )
+
+                    // Category Chips
+                    if (categories.isNotEmpty()) {
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        ) {
+                            item {
+                                FilterChip(
+                                    selected = selectedCategory == null,
+                                    onClick = { viewModel.selectCategory(null) },
+                                    label = { Text("All Products", fontWeight = FontWeight.Medium) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                        selectedLabelColor = Color.White
+                                    ),
+                                    shape = RoundedCornerShape(20.dp)
+                                )
+                            }
+                            items(categories) { category ->
+                                FilterChip(
+                                    selected = selectedCategory == category,
+                                    onClick = { viewModel.selectCategory(category) },
+                                    label = { Text(category, fontWeight = FontWeight.Medium) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                        selectedLabelColor = Color.White
+                                    ),
+                                    shape = RoundedCornerShape(20.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Product Catalog (Grid or List View)
+                    if (products.isEmpty()) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
-                                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                                .fillMaxWidth()
+                                .weight(1f),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.ShoppingCart,
-                                contentDescription = "View Cart",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
                             Text(
-                                text = "$totalItemCount item${if (totalItemCount > 1) "s" else ""}",
-                                style = MaterialTheme.typography.labelSmall,
+                                text = if (searchQuery.isNotEmpty()) "No matching products found" else "No products available in inventory",
+                                style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Text(
-                                text = formatMoney(totalAmount),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                        }
+                    } else if (isGridView) {
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 145.dp),
+                            contentPadding = PaddingValues(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            items(products, key = { it.id }) { product ->
+                                ProductCard(
+                                    product = product,
+                                    onAddToCart = {
+                                        if (isAddOnsEnabled && activeAddOns.isNotEmpty()) {
+                                            selectedProductForAddOns = product
+                                        } else {
+                                            viewModel.addToCart(product)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            items(products, key = { it.id }) { product ->
+                                ProductListRow(
+                                    product = product,
+                                    onAddToCart = {
+                                        if (isAddOnsEnabled && activeAddOns.isNotEmpty()) {
+                                            selectedProductForAddOns = product
+                                        } else {
+                                            viewModel.addToCart(product)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Right Column: Embedded Side Cart Panel
+                GlassCard(
+                    modifier = Modifier
+                        .width(360.dp)
+                        .wrapContentHeight(),
+                    shape = RoundedCornerShape(20.dp),
+                    backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                    elevation = 4.dp
+                ) {
+                    CartContent(
+                        cartItems = cartItems,
+                        onUpdateQuantity = { id, delta -> viewModel.updateCartQuantity(id, delta) },
+                        onRemoveItem = { id -> viewModel.removeFromCart(id) },
+                        onClearCart = { viewModel.clearCart() },
+                        onProceedToPayment = { showCheckoutDialog = true }
+                    )
+                }
+            }
+        } else {
+            // Compact Mobile Layout
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = if (cartItems.isNotEmpty()) (if (isCartExpanded) 230.dp else 84.dp) else 0.dp)
+            ) {
+                if (editingOrder != null) {
+                    GlassSurface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        backgroundColor = WarningOrange.copy(alpha = 0.15f),
+                        borderColor = WarningOrange.copy(alpha = 0.5f),
+                        elevation = 2.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Editing Unpaid Order",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = WarningOrange,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = editingOrder?.order?.orderNumber?.ifBlank { "Order #${editingOrder?.order?.id}" } ?: "",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            TextButton(
+                                onClick = { viewModel.cancelEditingOrder() }
+                            ) {
+                                Text("Cancel Edit", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                // Header / Search Bar
+                SurfaceHeader(
+                    searchQuery = searchQuery,
+                    isGridView = isGridView,
+                    onSearchChange = { viewModel.updateSearchQuery(it) },
+                    onClearSearch = { viewModel.updateSearchQuery("") },
+                    onToggleLayout = { isGridView = !isGridView }
+                )
+
+                // Category Chips
+                if (categories.isNotEmpty()) {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    ) {
+                        item {
+                            FilterChip(
+                                selected = selectedCategory == null,
+                                onClick = { viewModel.selectCategory(null) },
+                                label = { Text("All Products", fontWeight = FontWeight.Medium) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(20.dp)
+                            )
+                        }
+                        items(categories) { category ->
+                            FilterChip(
+                                selected = selectedCategory == category,
+                                onClick = { viewModel.selectCategory(category) },
+                                label = { Text(category, fontWeight = FontWeight.Medium) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(20.dp)
                             )
                         }
                     }
+                }
 
-                    Button(
-                        onClick = { showCheckoutDialog = true },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                // Product Catalog (Grid or List View)
+                if (products.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Pay Now", fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (searchQuery.isNotEmpty()) "No matching products found" else "No products available in inventory",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else if (isGridView) {
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 145.dp),
+                        contentPadding = PaddingValues(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        items(products, key = { it.id }) { product ->
+                            ProductCard(
+                                product = product,
+                                onAddToCart = {
+                                    if (isAddOnsEnabled && activeAddOns.isNotEmpty()) {
+                                        selectedProductForAddOns = product
+                                    } else {
+                                        viewModel.addToCart(product)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        items(products, key = { it.id }) { product ->
+                            ProductListRow(
+                                product = product,
+                                onAddToCart = {
+                                    if (isAddOnsEnabled && activeAddOns.isNotEmpty()) {
+                                        selectedProductForAddOns = product
+                                    } else {
+                                        viewModel.addToCart(product)
+                                    }
+                                }
+                            )
+                        }
                     }
                 }
             }
-        }
-    }
 
-    if (showCartSheet) {
-        CartBottomSheet(
-            cartItems = cartItems,
-            sheetState = sheetState,
-            onDismiss = { showCartSheet = false },
-            onUpdateQuantity = { id, delta -> viewModel.updateCartQuantity(id, delta) },
-            onRemoveItem = { id -> viewModel.removeFromCart(id) },
-            onClearCart = { viewModel.clearCart() },
-            onProceedToPayment = {
-                scope.launch { sheetState.hide() }.invokeOnCompletion {
-                    showCartSheet = false
-                    showCheckoutDialog = true
-                }
+            // Bottom Auto-Expanding Cart Container (Mobile)
+            if (cartItems.isNotEmpty()) {
+                AutoExpandingCartCard(
+                    cartItems = cartItems,
+                    totalItemCount = totalItemCount,
+                    totalAmount = totalAmount,
+                    isExpanded = isCartExpanded,
+                    onToggleExpand = { isCartExpanded = !isCartExpanded },
+                    onUpdateQuantity = { id, delta -> viewModel.updateCartQuantity(id, delta) },
+                    onRemoveItem = { id -> viewModel.removeFromCart(id) },
+                    onClearCart = { viewModel.clearCart() },
+                    onCheckout = { showCheckoutDialog = true },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(8.dp)
+                )
             }
-        )
+        }
     }
 
     if (showCheckoutDialog) {
@@ -432,6 +558,7 @@ fun RegisterScreen(viewModel: PosViewModel) {
             onConfirm = { selectedAddOns, itemNote ->
                 viewModel.addToCart(product, selectedAddOns, itemNote)
                 selectedProductForAddOns = null
+                isCartExpanded = true
             }
         )
     }
@@ -696,6 +823,243 @@ fun ProductCard(
     }
 }
 
+@Composable
+fun AutoExpandingCartCard(
+    cartItems: List<CartItem>,
+    totalItemCount: Int,
+    totalAmount: Double,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
+    onUpdateQuantity: (Int, Int) -> Unit,
+    onRemoveItem: (Int) -> Unit,
+    onClearCart: () -> Unit,
+    onCheckout: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    GlassCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            ),
+        shape = RoundedCornerShape(22.dp),
+        backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+        elevation = 8.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            // Header Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { onToggleExpand() }
+                    .padding(vertical = 4.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ShoppingCart,
+                            contentDescription = "Cart",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Current Order ($totalItemCount)",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
+                                contentDescription = if (isExpanded) "Collapse" else "Expand",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Text(
+                            text = formatMoney(totalAmount),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isExpanded) {
+                        TextButton(
+                            onClick = onClearCart,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text("Clear", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+
+                    Button(
+                        onClick = onCheckout,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Pay Now", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+            }
+
+            // Auto-expanding stacked cart items list: Hugs 1-2 items tightly, caps at 210dp max with scrollability for many items
+            if (isExpanded) {
+                Spacer(modifier = Modifier.height(6.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                Spacer(modifier = Modifier.height(6.dp))
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 210.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    itemsIndexed(cartItems, key = { index, item -> "${item.product.id}_$index" }) { index, item ->
+                        CartItemRow(
+                            cartItem = item,
+                            onIncrease = { onUpdateQuantity(index, 1) },
+                            onDecrease = { onUpdateQuantity(index, -1) },
+                            onRemove = { onRemoveItem(index) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CartContent(
+    cartItems: List<CartItem>,
+    onUpdateQuantity: (Int, Int) -> Unit,
+    onRemoveItem: (Int) -> Unit,
+    onClearCart: () -> Unit,
+    onProceedToPayment: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .wrapContentHeight()
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Current Order",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            if (cartItems.isNotEmpty()) {
+                TextButton(onClick = onClearCart) {
+                    Text("Clear Cart", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (cartItems.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Cart is empty. Tap items to add.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 320.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                itemsIndexed(cartItems) { index, item ->
+                    CartItemRow(
+                        cartItem = item,
+                        onIncrease = { onUpdateQuantity(index, 1) },
+                        onDecrease = { onUpdateQuantity(index, -1) },
+                        onRemove = { onRemoveItem(index) }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        val totalAmount = cartItems.sumOf { it.subtotal }
+        GlassSurface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            backgroundColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
+            elevation = 1.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Total Amount:", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = formatMoney(totalAmount),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Button(
+            onClick = onProceedToPayment,
+            enabled = cartItems.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Text("Proceed to Checkout", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CartBottomSheet(
@@ -712,78 +1076,14 @@ fun CartBottomSheet(
         sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Current Order",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                TextButton(onClick = onClearCart) {
-                    Text("Clear Cart", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            LazyColumn(
-                modifier = Modifier.weight(1f, fill = false),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                itemsIndexed(cartItems) { index, item ->
-                    CartItemRow(
-                        cartItem = item,
-                        onIncrease = { onUpdateQuantity(index, 1) },
-                        onDecrease = { onUpdateQuantity(index, -1) },
-                        onRemove = { onRemoveItem(index) }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            val totalAmount = cartItems.sumOf { it.subtotal }
-            GlassSurface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                backgroundColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.85f),
-                elevation = 1.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Total Amount:", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        text = formatMoney(totalAmount),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = onProceedToPayment,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Proceed to Checkout", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            }
-        }
+        CartContent(
+            cartItems = cartItems,
+            onUpdateQuantity = onUpdateQuantity,
+            onRemoveItem = onRemoveItem,
+            onClearCart = onClearCart,
+            onProceedToPayment = onProceedToPayment,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
     }
 }
 
@@ -796,44 +1096,58 @@ fun CartItemRow(
 ) {
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(10.dp),
         backgroundColor = MaterialTheme.colorScheme.background.copy(alpha = 0.85f),
         elevation = 1.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(cartItem.product.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = cartItem.product.name,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
                 if (cartItem.addOnsSummary.isNotBlank()) {
                     Text(
-                        cartItem.addOnsSummary,
+                        text = cartItem.addOnsSummary,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
                 Text(
-                    "${formatMoney(cartItem.unitPriceWithAddOns)} × ${cartItem.quantity} = ${formatMoney(cartItem.subtotal)}",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "${formatMoney(cartItem.unitPriceWithAddOns)} × ${cartItem.quantity} = ${formatMoney(cartItem.subtotal)}",
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onDecrease, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Remove, contentDescription = "Decrease")
+                IconButton(onClick = onDecrease, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Default.Remove, contentDescription = "Decrease", modifier = Modifier.size(16.dp))
                 }
-                Text("${cartItem.quantity}", fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp))
-                IconButton(onClick = onIncrease, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Add, contentDescription = "Increase")
+                Text(
+                    text = cartItem.quantity.toString(),
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                )
+                IconButton(onClick = onIncrease, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(16.dp))
                 }
-                IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
-                    Icon(Icons.Default.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error)
+                Spacer(modifier = Modifier.width(4.dp))
+                IconButton(onClick = onRemove, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                 }
             }
         }
@@ -1344,10 +1658,10 @@ fun SelectAddOnsDialog(
     ) {
         GlassSurface(
             modifier = Modifier
-                .fillMaxWidth(0.94f)
-                .widthIn(max = 520.dp)
-                .heightIn(max = 680.dp)
-                .padding(vertical = 16.dp),
+                .fillMaxWidth(0.92f)
+                .widthIn(max = 500.dp)
+                .heightIn(max = 580.dp)
+                .padding(vertical = 12.dp),
             shape = RoundedCornerShape(24.dp),
             backgroundColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
             borderColor = Color.White.copy(alpha = 0.90f),
@@ -1587,7 +1901,7 @@ fun SelectAddOnsDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f, fill = false)) {
                         Text(
                             text = if (totalAddOnsCount > 0) "$totalAddOnsCount Add-On${if (totalAddOnsCount > 1) "s" else ""} selected" else "Base Price",
                             style = MaterialTheme.typography.labelSmall,
@@ -1597,12 +1911,22 @@ fun SelectAddOnsDialog(
                             text = formatMoney(itemTotal),
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = onDismiss) {
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            onClick = onDismiss,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                        ) {
                             Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Button(
@@ -1618,11 +1942,18 @@ fun SelectAddOnsDialog(
                                 onDismiss()
                             },
                             shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Add to Cart", fontWeight = FontWeight.Bold)
+                            Text(
+                                text = "Add to Cart",
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                fontSize = 13.sp,
+                                softWrap = false
+                            )
                         }
                     }
                 }
