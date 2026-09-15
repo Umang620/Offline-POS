@@ -116,8 +116,8 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 80.dp)
             .verticalScroll(rememberScrollState())
+            .padding(16.dp)
     ) {
         Text(
             text = "Settings & Configuration",
@@ -668,6 +668,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
                 }
             }
         }
+        Spacer(modifier = Modifier.height(24.dp))
     }
 
     // Set / Change Manager PIN Dialog

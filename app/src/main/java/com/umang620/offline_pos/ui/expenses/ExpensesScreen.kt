@@ -290,7 +290,7 @@ fun ExpensesScreen(viewModel: ExpensesViewModel) {
                 LazyColumn(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(bottom = 80.dp)
+                    contentPadding = PaddingValues(bottom = 24.dp)
                 ) {
                     items(expenses, key = { it.id }) { expense ->
                         ExpenseCard(

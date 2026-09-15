@@ -240,8 +240,8 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 80.dp)
             .verticalScroll(rememberScrollState())
+            .padding(16.dp)
     ) {
         // All-Time Summary Header (Revenue, Net Profit, Expenses, Products Sold)
         GlassCard(
@@ -655,6 +655,7 @@ fun DailySummaryScreen(viewModel: DailySummaryViewModel) {
             onViewExpensesDetails = { showExpensesDialog = true },
             onViewUnpaidDetails = { showUnpaidDialog = true }
         )
+        Spacer(modifier = Modifier.height(24.dp))
     }
 
     if (showTopProductsDialog) {

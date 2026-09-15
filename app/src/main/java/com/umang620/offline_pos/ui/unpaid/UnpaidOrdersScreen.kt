@@ -320,7 +320,7 @@ fun UnpaidOrdersScreen(
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 80.dp)
+                contentPadding = PaddingValues(bottom = 24.dp)
             ) {
                 items(unpaidOrders, key = { it.order.id }) { orderWithItems ->
                     UnpaidOrderCard(
